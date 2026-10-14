@@ -3,6 +3,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local VIM = game:GetService("VirtualInputManager")
 local TweenService = game:GetService("TweenService")
+local SoundService = game:GetService("SoundService")
 local plr = Players.LocalPlayer
 local cam = workspace.CurrentCamera
 
@@ -44,9 +45,41 @@ local function CreateStroke(parent, color, thickness)
     return s
 end
 
+-- ЗВУКИ (ID можно менять)
+local HitSoundIDs = {
+    136688569661082,  -- «Есть пробитие!»
+    7531253465,       -- «Противник уничтожен!»
+}
+local MissSoundID = 117671199302919  -- «Не пробил!»
+
+local function PlaySoundById(soundId)
+    local s = Instance.new("Sound")
+    s.SoundId = "rbxassetid://" .. tostring(soundId)
+    s.Volume = 2
+    s.Parent = SoundService
+    s:Play()
+    task.delay(5, function()
+        if s and s.Parent then s:Destroy() end
+    end)
+end
+
+local function PlayHitSound()
+    if not soundsEnabled then return end
+    local pick = HitSoundIDs[math.random(1, #HitSoundIDs)]
+    PlaySoundById(pick)
+end
+
+local function PlayMissSound()
+    if not missSoundEnabled then return end
+    PlaySoundById(MissSoundID)
+end
+
+-- СОСТОЯНИЕ
 local autoAimEnabled = false
 local autoFireEnabled = true
 local stopWhenMoving = true
+local soundsEnabled = true
+local missSoundEnabled = true
 local maxDistance = 2000
 local minHeight = 20
 local fireBtn = nil
@@ -54,6 +87,16 @@ local lastFire = 0
 local fireCooldown = 0.15
 local fireCountThisCycle = 0
 
+-- ДЕТЕКТ
+local pendingDrone = nil
+local pendingTime = 0
+local CHECK_TIME = 5
+
+-- СТАТ
+local hitCount = 0
+local missCount = 0
+
+-- ХЕЛПЕРЫ
 local function GetCircle()
     local pg = plr:FindFirstChild("PlayerGui")
     if not pg then return nil end
@@ -93,31 +136,26 @@ local function IsFireBtnValid()
 end
 
 local function FindDrone()
-    local dronesFolder = workspace:FindFirstChild("Drones")
-    if not dronesFolder then return nil, 0, nil end
-
-    local nearestPos = nil
-    local nearestDist = maxDistance
-    local nearestName = nil
+    local folder = workspace:FindFirstChild("Drones")
+    if not folder then return nil, 0, nil, nil end
+    local nearestPos, nearestDist, nearestName, nearestObj = nil, maxDistance, nil, nil
     local camPos = cam.CFrame.Position
-
-    for _, obj in pairs(dronesFolder:GetChildren()) do
+    for _, obj in pairs(folder:GetChildren()) do
         if obj:IsA("Model") then
             local part = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
             if part then
                 local pos = part.Position
                 local dist = (pos - camPos).Magnitude
-
                 if pos.Y >= minHeight and dist < nearestDist then
                     nearestDist = dist
                     nearestPos = pos
                     nearestName = obj.Name
+                    nearestObj = obj
                 end
             end
         end
     end
-
-    return nearestPos, nearestDist, nearestName
+    return nearestPos, nearestDist, nearestName, nearestObj
 end
 
 local function IsPlayerMoving()
@@ -133,15 +171,17 @@ local function TapButton(button)
     local absSize = button.AbsoluteSize
     local x = absPos.X + absSize.X / 2
     local y = absPos.Y + absSize.Y / 2
-
     VIM:SendMouseButtonEvent(x, y, 0, true, game, 1)
     task.wait(0.02)
     VIM:SendMouseButtonEvent(x, y, 0, false, game, 1)
 end
 
+-- ============================================
+-- UI
+
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 520, 0, 380)
-MainFrame.Position = UDim2.new(0.5, -260, 0.5, -190)
+MainFrame.Size = UDim2.new(0, 520, 0, 420)
+MainFrame.Position = UDim2.new(0.5, -260, 0.5, -210)
 MainFrame.BackgroundColor3 = Theme.Background
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = false
@@ -323,110 +363,235 @@ local function CreateCard(parent, title, subtitle, yOffset)
     return Card
 end
 
+-- WELCOME
 CreateSectionHeader(WelcomePage, "Добро пожаловать", 16)
 CreateCard(WelcomePage, "Zep Hub", "Загружен и готов к работе", 45)
 CreateCard(WelcomePage, "Версия", ScriptVersion, 110)
 CreateCard(WelcomePage, "Автор", ScriptAuthor, 175)
 
+-- ============================================
 -- MAIN PAGE
+
 CreateSectionHeader(MainPage, "AIM", 10)
 
-local CheckContainer = Instance.new("Frame")
-CheckContainer.Size = UDim2.new(1, -32, 0, 44)
-CheckContainer.Position = UDim2.new(0, 16, 0, 40)
-CheckContainer.BackgroundColor3 = Theme.Surface
-CheckContainer.BorderSizePixel = 0
-CheckContainer.Parent = MainPage
-CreateCorner(CheckContainer, 10)
-CreateStroke(CheckContainer, Theme.Stroke, 1)
+local function CreateCheckbox(parent, text, yOffset, defaultState, callback)
+    local Container = Instance.new("Frame")
+    Container.Size = UDim2.new(1, -32, 0, 40)
+    Container.Position = UDim2.new(0, 16, 0, yOffset)
+    Container.BackgroundColor3 = Theme.Surface
+    Container.BorderSizePixel = 0
+    Container.Parent = parent
+    CreateCorner(Container, 10)
+    CreateStroke(Container, Theme.Stroke, 1)
 
-local CheckBox = Instance.new("Frame")
-CheckBox.Size = UDim2.new(0, 20, 0, 20)
-CheckBox.Position = UDim2.new(0, 14, 0.5, -10)
-CheckBox.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
-CheckBox.BorderSizePixel = 0
-CheckBox.Parent = CheckContainer
-CreateCorner(CheckBox, 5)
+    local Box = Instance.new("Frame")
+    Box.Size = UDim2.new(0, 20, 0, 20)
+    Box.Position = UDim2.new(0, 12, 0.5, -10)
+    Box.BackgroundColor3 = defaultState and Theme.Accent or Color3.fromRGB(10, 10, 12)
+    Box.BorderSizePixel = 0
+    Box.Parent = Container
+    CreateCorner(Box, 5)
 
-local CheckBoxStroke = Instance.new("UIStroke")
-CheckBoxStroke.Color = Theme.Stroke
-CheckBoxStroke.Thickness = 1.5
-CheckBoxStroke.Parent = CheckBox
+    local BoxStroke = Instance.new("UIStroke")
+    BoxStroke.Color = defaultState and Theme.Accent or Theme.Stroke
+    BoxStroke.Thickness = 1.5
+    BoxStroke.Parent = Box
 
-local CheckMark = Instance.new("ImageLabel")
-CheckMark.Size = UDim2.new(0, 14, 0, 14)
-CheckMark.Position = UDim2.new(0.5, -7, 0.5, -7)
-CheckMark.BackgroundTransparency = 1
-CheckMark.Image = "rbxassetid://6031094667"
-CheckMark.ImageColor3 = Theme.Accent
-CheckMark.ImageTransparency = 1
-CheckMark.Parent = CheckBox
+    local Mark = Instance.new("ImageLabel")
+    Mark.Size = UDim2.new(0, 14, 0, 14)
+    Mark.Position = UDim2.new(0.5, -7, 0.5, -7)
+    Mark.BackgroundTransparency = 1
+    Mark.Image = "rbxassetid://6031094667"
+    Mark.ImageColor3 = Theme.Accent
+    Mark.ImageTransparency = defaultState and 0 or 1
+    Mark.Parent = Box
 
-local CheckLabel = Instance.new("TextLabel")
-CheckLabel.Size = UDim2.new(1, -50, 1, 0)
-CheckLabel.Position = UDim2.new(0, 44, 0, 0)
-CheckLabel.BackgroundTransparency = 1
-CheckLabel.Text = "Auto-Aim"
-CheckLabel.TextColor3 = Theme.Text
-CheckLabel.Font = Enum.Font.GothamMedium
-CheckLabel.TextSize = 13
-CheckLabel.TextXAlignment = Enum.TextXAlignment.Left
-CheckLabel.Parent = CheckContainer
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, -50, 1, 0)
+    Label.Position = UDim2.new(0, 42, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = text
+    Label.TextColor3 = Theme.Text
+    Label.Font = Enum.Font.GothamMedium
+    Label.TextSize = 12
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Container
 
-local CheckBtn = Instance.new("TextButton")
-CheckBtn.Size = UDim2.new(1, 0, 1, 0)
-CheckBtn.BackgroundTransparency = 1
-CheckBtn.Text = ""
-CheckBtn.Parent = CheckContainer
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(1, 0, 1, 0)
+    Btn.BackgroundTransparency = 1
+    Btn.Text = ""
+    Btn.Parent = Container
 
-local function UpdateCheckbox()
-    if autoAimEnabled then
-        CheckBox.BackgroundColor3 = Theme.Accent
-        CheckBoxStroke.Color = Theme.Accent
-        CheckMark.ImageTransparency = 0
-    else
-        CheckBox.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
-        CheckBoxStroke.Color = Theme.Stroke
-        CheckMark.ImageTransparency = 1
-    end
+    local state = defaultState
+
+    Btn.MouseButton1Click:Connect(function()
+        state = not state
+        if state then
+            Box.BackgroundColor3 = Theme.Accent
+            BoxStroke.Color = Theme.Accent
+            Mark.ImageTransparency = 0
+        else
+            Box.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
+            BoxStroke.Color = Theme.Stroke
+            Mark.ImageTransparency = 1
+        end
+        callback(state)
+    end)
+
+    Container.MouseEnter:Connect(function()
+        TweenService:Create(Container, TweenInfo.new(0.15), {
+            BackgroundColor3 = Theme.SurfaceHover
+        }):Play()
+    end)
+
+    Container.MouseLeave:Connect(function()
+        TweenService:Create(Container, TweenInfo.new(0.15), {
+            BackgroundColor3 = Theme.Surface
+        }):Play()
+    end)
+
+    return Container
 end
 
-CheckBtn.MouseButton1Click:Connect(function()
-    autoAimEnabled = not autoAimEnabled
-    UpdateCheckbox()
+CreateCheckbox(MainPage, "Auto-Aim", 40, false, function(v)
+    autoAimEnabled = v
 end)
 
-CheckContainer.MouseEnter:Connect(function()
-    TweenService:Create(CheckContainer, TweenInfo.new(0.15), {
-        BackgroundColor3 = Theme.SurfaceHover
-    }):Play()
+-- ============================================
+-- ЗВУКИ
+
+CreateSectionHeader(MainPage, "Звуки", 92)
+
+CreateCheckbox(MainPage, "Звуки попадания", 122, true, function(v)
+    soundsEnabled = v
 end)
 
-CheckContainer.MouseLeave:Connect(function()
-    TweenService:Create(CheckContainer, TweenInfo.new(0.15), {
-        BackgroundColor3 = Theme.Surface
-    }):Play()
+CreateCheckbox(MainPage, "Звук промаха", 168, true, function(v)
+    missSoundEnabled = v
 end)
 
-local StatusLabel = Instance.new("TextLabel")
-StatusLabel.Size = UDim2.new(1, -32, 0, 220)
-StatusLabel.Position = UDim2.new(0, 16, 0, 100)
-StatusLabel.BackgroundTransparency = 1
-StatusLabel.Text = "Ожидание Stinger-M..."
-StatusLabel.TextColor3 = Theme.TextDim
-StatusLabel.Font = Enum.Font.Code
-StatusLabel.TextSize = 11
-StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
-StatusLabel.TextYAlignment = Enum.TextYAlignment.Top
-StatusLabel.TextWrapped = true
-StatusLabel.Parent = MainPage
+-- ПОЛЯ ДЛЯ ID
+local function CreateIdField(parent, label, defaultId, yOffset, onApply)
+    local Container = Instance.new("Frame")
+    Container.Size = UDim2.new(1, -32, 0, 32)
+    Container.Position = UDim2.new(0, 16, 0, yOffset)
+    Container.BackgroundColor3 = Theme.Surface
+    Container.BorderSizePixel = 0
+    Container.Parent = parent
+    CreateCorner(Container, 8)
+    CreateStroke(Container, Theme.Stroke, 1)
 
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0, 90, 1, 0)
+    Label.Position = UDim2.new(0, 8, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = label
+    Label.TextColor3 = Theme.TextDim
+    Label.Font = Enum.Font.GothamMedium
+    Label.TextSize = 10
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Container
+
+    local Input = Instance.new("TextBox")
+    Input.Size = UDim2.new(1, -180, 1, 0)
+    Input.Position = UDim2.new(0, 100, 0, 0)
+    Input.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
+    Input.Text = tostring(defaultId)
+    Input.TextColor3 = Theme.Text
+    Input.Font = Enum.Font.Code
+    Input.TextSize = 10
+    Input.BorderSizePixel = 0
+    Input.TextXAlignment = Enum.TextXAlignment.Left
+    Input.ClearTextOnFocus = false
+    Input.Parent = Container
+    CreateCorner(Input, 6)
+
+    local InputPad = Instance.new("UIPadding")
+    InputPad.PaddingLeft = UDim.new(0, 6)
+    InputPad.PaddingRight = UDim.new(0, 6)
+    InputPad.Parent = Input
+
+    local PlayBtn = Instance.new("TextButton")
+    PlayBtn.Size = UDim2.new(0, 26, 0, 20)
+    PlayBtn.Position = UDim2.new(1, -60, 0.5, -10)
+    PlayBtn.BackgroundColor3 = Color3.fromRGB(60, 100, 60)
+    PlayBtn.Text = "▶"
+    PlayBtn.TextColor3 = Color3.fromRGB(200, 255, 200)
+    PlayBtn.Font = Enum.Font.GothamBold
+    PlayBtn.TextSize = 11
+    PlayBtn.BorderSizePixel = 0
+    PlayBtn.Parent = Container
+    CreateCorner(PlayBtn, 5)
+
+    local ApplyBtn = Instance.new("TextButton")
+    ApplyBtn.Size = UDim2.new(0, 26, 0, 20)
+    ApplyBtn.Position = UDim2.new(1, -30, 0.5, -10)
+    ApplyBtn.BackgroundColor3 = Color3.fromRGB(60, 80, 180)
+    ApplyBtn.Text = "✓"
+    ApplyBtn.TextColor3 = Color3.fromRGB(200, 220, 255)
+    ApplyBtn.Font = Enum.Font.GothamBold
+    ApplyBtn.TextSize = 11
+    ApplyBtn.BorderSizePixel = 0
+    ApplyBtn.Parent = Container
+    CreateCorner(ApplyBtn, 5)
+
+    PlayBtn.MouseButton1Click:Connect(function()
+        local id = tonumber(Input.Text)
+        if id then
+            PlaySoundById(id)
+        end
+    end)
+
+    ApplyBtn.MouseButton1Click:Connect(function()
+        local id = tonumber(Input.Text)
+        if id then
+            onApply(id)
+            ApplyBtn.BackgroundColor3 = Color3.fromRGB(80, 200, 80)
+            task.wait(0.3)
+            ApplyBtn.BackgroundColor3 = Color3.fromRGB(60, 80, 180)
+        end
+    end)
+
+    return Container
+end
+
+-- Поля ID (можно менять)
+local hit1Field = CreateIdField(MainPage, "Попадание 1", HitSoundIDs[1], 214, function(id)
+    HitSoundIDs[1] = id
+end)
+
+local hit2Field = CreateIdField(MainPage, "Попадание 2", HitSoundIDs[2], 250, function(id)
+    HitSoundIDs[2] = id
+end)
+
+local missField = CreateIdField(MainPage, "Промах", MissSoundID, 286, function(id)
+    MissSoundID = id
+end)
+
+-- СТАТИСТИКА
+CreateSectionHeader(MainPage, "Статистика", 326)
+
+local StatsLabel = Instance.new("TextLabel")
+StatsLabel.Size = UDim2.new(1, -32, 0, 36)
+StatsLabel.Position = UDim2.new(0, 16, 0, 350)
+StatsLabel.BackgroundColor3 = Theme.Surface
+StatsLabel.Text = "Сбито: 0  ·  Промахов: 0"
+StatsLabel.TextColor3 = Theme.Text
+StatsLabel.Font = Enum.Font.GothamMedium
+StatsLabel.TextSize = 12
+StatsLabel.Parent = MainPage
+CreateCorner(StatsLabel, 10)
+CreateStroke(StatsLabel, Theme.Stroke, 1)
+
+-- SETTINGS / INFO
 CreateSectionHeader(SettingsPage, "Настройки", 16)
 CreateCard(SettingsPage, "Контент", "Добавим позже", 45)
 
 CreateSectionHeader(InfoPage, "Информация", 16)
 CreateCard(InfoPage, "Автор", ScriptAuthor, 45)
 
+-- ВКЛАДКИ
 local Pages = {
     Welcome = WelcomePage,
     Main = MainPage,
@@ -543,6 +708,7 @@ CreateTab("Инфо", "Info")
 
 SwitchPage("Welcome")
 
+-- ОТКРЫВАШКА
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
 ToggleBtn.Position = UDim2.new(0, 20, 0.5, -25)
@@ -605,7 +771,6 @@ end)
 
 ToggleBtn.MouseButton1Click:Connect(function()
     if ToggleMoved then return end
-
     if MainFrame.Visible then
         local tween = TweenService:Create(MainFrame, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
             Size = UDim2.new(0, 0, 0, 0),
@@ -621,22 +786,10 @@ ToggleBtn.MouseButton1Click:Connect(function()
         MainFrame.Visible = true
         task.wait(0.02)
         TweenService:Create(MainFrame, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 520, 0, 380),
-            Position = UDim2.new(0.5, -260, 0.5, -190)
+            Size = UDim2.new(0, 520, 0, 420),
+            Position = UDim2.new(0.5, -260, 0.5, -210)
         }):Play()
     end
-end)
-
-ToggleBtn.MouseEnter:Connect(function()
-    TweenService:Create(ToggleBtn, TweenInfo.new(0.15), {
-        BackgroundColor3 = Theme.SurfaceHover
-    }):Play()
-end)
-
-ToggleBtn.MouseLeave:Connect(function()
-    TweenService:Create(ToggleBtn, TweenInfo.new(0.15), {
-        BackgroundColor3 = Theme.Background
-    }):Play()
 end)
 
 local dragging, dragStart, startPos
@@ -676,6 +829,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
+-- ПОИСК FIRE
 task.spawn(function()
     while true do
         task.wait(0.5)
@@ -692,34 +846,46 @@ plr.CharacterAdded:Connect(function(char)
     if newBtn then fireBtn = newBtn end
 end)
 
+-- ГЛАВНЫЙ ЦИКЛ
 RunService.RenderStepped:Connect(function()
-    local hasStinger = plr.Character and plr.Character:FindFirstChild("Stinger-M")
+    local now = tick()
+
+    -- Проверка попадания
+    if pendingDrone then
+        if pendingDrone.Parent then
+            if now - pendingTime >= CHECK_TIME then
+                missCount = missCount + 1
+                PlayMissSound()
+                StatsLabel.Text = "Сбито: " .. hitCount .. "  ·  Промахов: " .. missCount
+                pendingDrone = nil
+                pendingTime = 0
+            end
+        else
+            hitCount = hitCount + 1
+            PlayHitSound()
+            StatsLabel.Text = "Сбито: " .. hitCount .. "  ·  Промахов: " .. missCount
+            pendingDrone = nil
+            pendingTime = 0
+        end
+    end
 
     if not autoAimEnabled then
-        StatusLabel.Text = "Auto-Aim выключен"
-        StatusLabel.TextColor3 = Theme.TextDim
         return
     end
 
+    local hasStinger = plr.Character and plr.Character:FindFirstChild("Stinger-M")
     if not hasStinger then
-        StatusLabel.Text = "⏳ Ожидание Stinger-M в руке..."
-        StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 120)
         fireCountThisCycle = 0
         return
     end
 
-    local dronePos, dist, name = FindDrone()
+    local dronePos, dist, name, droneObj = FindDrone()
 
     if dronePos then
         local targetCFrame = CFrame.new(cam.CFrame.Position, dronePos)
         cam.CFrame = cam.CFrame:Lerp(targetCFrame, 0.2)
 
         local green = IsCircleGreen()
-        local statusText = "Цель: " .. tostring(name)
-        statusText = statusText .. "\nВысота: " .. math.floor(dronePos.Y)
-        statusText = statusText .. "\nДист: " .. math.floor(dist)
-        statusText = statusText .. "\nКруг зелёный: " .. (green and "ДА" or "НЕТ")
-        statusText = statusText .. "\nВыстрелов: " .. fireCountThisCycle .. "/2"
 
         if autoFireEnabled then
             if not IsFireBtnValid() then
@@ -730,35 +896,25 @@ RunService.RenderStepped:Connect(function()
                 local isMoving = IsPlayerMoving()
 
                 if stopWhenMoving and isMoving then
-                    statusText = statusText .. "\n🚫 Ходьба — стоп"
+                    -- стоп
                 elseif not green then
                     fireCountThisCycle = 0
-                    statusText = statusText .. "\n⏳ Ждём зелёный круг"
                 else
                     if fireCountThisCycle < 2 then
-                        local now = tick()
                         if now - lastFire >= fireCooldown then
                             lastFire = now
                             fireCountThisCycle = fireCountThisCycle + 1
                             TapButton(fireBtn)
-                            statusText = statusText .. "\n🔥 FIRE (" .. fireCountThisCycle .. "/2)"
-                        else
-                            statusText = statusText .. "\n⏳ кулдаун"
+
+                            if fireCountThisCycle == 1 then
+                                pendingDrone = droneObj
+                                pendingTime = now
+                            end
                         end
-                    else
-                        statusText = statusText .. "\n✅ 2 выстрела сделано"
                     end
                 end
-            else
-                statusText = statusText .. "\n⏳ Fire не найден"
             end
         end
-
-        StatusLabel.Text = statusText
-        StatusLabel.TextColor3 = green and Color3.fromRGB(120, 255, 120) or Color3.fromRGB(255, 220, 120)
-    else
-        StatusLabel.Text = "Летающих дронов нет\n(мин. высота " .. minHeight .. ")"
-        StatusLabel.TextColor3 = Color3.fromRGB(255, 180, 120)
     end
 end)
 
