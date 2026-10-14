@@ -7,47 +7,90 @@ local SoundService = game:GetService("SoundService")
 local plr = Players.LocalPlayer
 local cam = workspace.CurrentCamera
 
-local Theme = {
-    Background   = Color3.fromRGB(18, 18, 22),
-    Surface      = Color3.fromRGB(26, 26, 32),
-    SurfaceHover = Color3.fromRGB(36, 36, 44),
-    Accent       = Color3.fromRGB(88, 132, 255),
-    Text         = Color3.fromRGB(235, 235, 240),
-    TextDim      = Color3.fromRGB(130, 130, 145),
-    Stroke       = Color3.fromRGB(50, 50, 60),
+-- СОХРАНЕНИЕ / ЗАГРУЗКА
+local function SaveFile(name, data)
+    pcall(function()
+        if writefile then
+            writefile("ZepHub_" .. name .. ".json", data)
+        end
+    end)
+end
+
+local function LoadFile(name)
+    local data = nil
+    pcall(function()
+        if readfile and isfile and isfile("ZepHub_" .. name .. ".json") then
+            data = readfile("ZepHub_" .. name .. ".json")
+        end
+    end)
+    return data
+end
+
+-- ЗАГРУЖАЕМ СОХРАНЕНИЯ
+local savedTheme = "Midnight"
+local savedHit1 = 136688569661082
+local savedHit2 = 7531253465
+local savedMiss = 117671199302919
+
+do
+    local themeData = LoadFile("Theme")
+    if themeData then savedTheme = themeData end
+
+    local s1 = LoadFile("Hit1")
+    if s1 and tonumber(s1) then savedHit1 = tonumber(s1) end
+
+    local s2 = LoadFile("Hit2")
+    if s2 and tonumber(s2) then savedHit2 = tonumber(s2) end
+
+    local sm = LoadFile("Miss")
+    if sm and tonumber(sm) then savedMiss = tonumber(sm) end
+end
+
+-- ЦВЕТОВЫЕ ТЕМЫ
+local Themes = {
+    Midnight = {
+        Background   = Color3.fromRGB(18, 18, 26),
+        Surface      = Color3.fromRGB(26, 26, 38),
+        SurfaceHover = Color3.fromRGB(36, 36, 52),
+        Accent       = Color3.fromRGB(88, 120, 255),
+        Text         = Color3.fromRGB(235, 235, 240),
+        TextDim      = Color3.fromRGB(130, 130, 155),
+        Stroke       = Color3.fromRGB(50, 50, 70),
+    },
+    Crimson = {
+        Background   = Color3.fromRGB(26, 18, 18),
+        Surface      = Color3.fromRGB(38, 26, 26),
+        SurfaceHover = Color3.fromRGB(52, 36, 36),
+        Accent       = Color3.fromRGB(255, 64, 64),
+        Text         = Color3.fromRGB(240, 235, 235),
+        TextDim      = Color3.fromRGB(155, 130, 130),
+        Stroke       = Color3.fromRGB(70, 50, 50),
+    },
+    Emerald = {
+        Background   = Color3.fromRGB(18, 26, 22),
+        Surface      = Color3.fromRGB(26, 38, 32),
+        SurfaceHover = Color3.fromRGB(36, 52, 42),
+        Accent       = Color3.fromRGB(64, 192, 96),
+        Text         = Color3.fromRGB(235, 240, 235),
+        TextDim      = Color3.fromRGB(130, 155, 130),
+        Stroke       = Color3.fromRGB(50, 70, 50),
+    },
+    Purple = {
+        Background   = Color3.fromRGB(22, 18, 26),
+        Surface      = Color3.fromRGB(32, 26, 38),
+        SurfaceHover = Color3.fromRGB(44, 36, 52),
+        Accent       = Color3.fromRGB(160, 96, 255),
+        Text         = Color3.fromRGB(240, 235, 240),
+        TextDim      = Color3.fromRGB(150, 130, 155),
+        Stroke       = Color3.fromRGB(65, 50, 70),
+    },
 }
 
-local ScriptName = "Zep Hub"
-local ScriptVersion = "v0.7"
-local ScriptAuthor = "Z3pty0rbex (@Aminb1000)"
-
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ZepHub_UI"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.IgnoreGuiInset = true
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = game:GetService("CoreGui")
-
-local function CreateCorner(parent, radius)
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, radius or 12)
-    c.Parent = parent
-    return c
-end
-
-local function CreateStroke(parent, color, thickness)
-    local s = Instance.new("UIStroke")
-    s.Color = color or Theme.Stroke
-    s.Thickness = thickness or 1
-    s.Transparency = 0.3
-    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    s.Parent = parent
-    return s
-end
+local Theme = Themes[savedTheme] or Themes.Midnight
 
 -- ЗВУКИ
-local HitSoundIDs = {136688569661082, 7531253465}
-local MissSoundID = 117671199302919
+local HitSoundIDs = {savedHit1, savedHit2}
+local MissSoundID = savedMiss
 
 local function PlaySoundById(soundId)
     local s = Instance.new("Sound")
@@ -55,7 +98,9 @@ local function PlaySoundById(soundId)
     s.Volume = 2
     s.Parent = SoundService
     s:Play()
-    task.delay(5, function() if s and s.Parent then s:Destroy() end end)
+    task.delay(5, function()
+        if s and s.Parent then s:Destroy() end
+    end)
 end
 
 local function PlayHitSound()
@@ -68,6 +113,11 @@ local function PlayMissSound()
 end
 
 -- СОСТОЯНИЕ
+local ScriptName = "Zep Hub"
+local ScriptVersion = "v1.0"
+local ScriptAuthor = "Z3pty0rbex (@Aminb1000)"
+local sessionStart = tick()
+
 local autoAimEnabled = false
 local autoFireEnabled = true
 local stopWhenMoving = true
@@ -89,9 +139,7 @@ local watchStartHeight = 0
 local hitCount = 0
 local missCount = 0
 
-local AutoAimBox = nil
-local AutoAimBoxStroke = nil
-local AutoAimMark = nil
+local AutoAimBox, AutoAimBoxStroke, AutoAimMark
 
 local function UpdateCheckboxVisual()
     if not AutoAimBox then return end
@@ -143,9 +191,7 @@ local function IsFireBtnValid()
     if not fireBtn.Visible then return false end
     local char = plr.Character
     if char then
-        if not char:FindFirstChild("Stinger-M") then
-            return false
-        end
+        if not char:FindFirstChild("Stinger-M") then return false end
     else
         return false
     end
@@ -218,7 +264,8 @@ local function CaptureDrone(drone)
     return parts, baseDists
 end
 
--- UI
+-- ============ UI ============
+
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 520, 0, 420)
 MainFrame.Position = UDim2.new(0.5, -260, 0.5, -210)
@@ -289,7 +336,6 @@ CloseBtn.MouseEnter:Connect(function()
         TextColor3 = Color3.fromRGB(255, 255, 255)
     }):Play()
 end)
-
 CloseBtn.MouseLeave:Connect(function()
     TweenService:Create(CloseBtn, TweenInfo.new(0.15), {
         BackgroundColor3 = Theme.Surface,
@@ -318,23 +364,12 @@ ContentArea.Position = UDim2.new(0, 140, 0, 48)
 ContentArea.BackgroundTransparency = 1
 ContentArea.Parent = MainFrame
 
+-- СТРАНИЦЫ
 local WelcomePage = Instance.new("Frame")
 WelcomePage.Size = UDim2.new(1, 0, 1, 0)
 WelcomePage.BackgroundTransparency = 1
 WelcomePage.Visible = true
 WelcomePage.Parent = ContentArea
-
-local SettingsPage = Instance.new("Frame")
-SettingsPage.Size = UDim2.new(1, 0, 1, 0)
-SettingsPage.BackgroundTransparency = 1
-SettingsPage.Visible = false
-SettingsPage.Parent = ContentArea
-
-local InfoPage = Instance.new("Frame")
-InfoPage.Size = UDim2.new(1, 0, 1, 0)
-InfoPage.BackgroundTransparency = 1
-InfoPage.Visible = false
-InfoPage.Parent = ContentArea
 
 local MainPage = Instance.new("ScrollingFrame")
 MainPage.Size = UDim2.new(1, 0, 1, 0)
@@ -347,11 +382,29 @@ MainPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
 MainPage.Visible = false
 MainPage.Parent = ContentArea
 
-local MainPadding = Instance.new("UIPadding")
-MainPadding.PaddingTop = UDim.new(0, 8)
-MainPadding.PaddingBottom = UDim.new(0, 8)
-MainPadding.Parent = MainPage
+local SettingsPage = Instance.new("ScrollingFrame")
+SettingsPage.Size = UDim2.new(1, 0, 1, 0)
+SettingsPage.BackgroundTransparency = 1
+SettingsPage.BorderSizePixel = 0
+SettingsPage.ScrollBarThickness = 4
+SettingsPage.ScrollBarImageColor3 = Theme.Accent
+SettingsPage.CanvasSize = UDim2.new(0, 0, 0, 0)
+SettingsPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
+SettingsPage.Visible = false
+SettingsPage.Parent = ContentArea
 
+local InfoPage = Instance.new("ScrollingFrame")
+InfoPage.Size = UDim2.new(1, 0, 1, 0)
+InfoPage.BackgroundTransparency = 1
+InfoPage.BorderSizePixel = 0
+InfoPage.ScrollBarThickness = 4
+InfoPage.ScrollBarImageColor3 = Theme.Accent
+InfoPage.CanvasSize = UDim2.new(0, 0, 0, 0)
+InfoPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
+InfoPage.Visible = false
+InfoPage.Parent = ContentArea
+
+-- ХЕЛПЕРЫ UI
 local function CreateSectionHeader(parent, text, yOffset)
     local Header = Instance.new("TextLabel")
     Header.Size = UDim2.new(1, -32, 0, 20)
@@ -412,11 +465,13 @@ local function CreateCard(parent, title, subtitle, yOffset)
     return Card
 end
 
+-- WELCOME
 CreateSectionHeader(WelcomePage, "Добро пожаловать", 16)
 CreateCard(WelcomePage, "Zep Hub", "Загружен и готов к работе", 45)
 CreateCard(WelcomePage, "Версия", ScriptVersion, 110)
 CreateCard(WelcomePage, "Автор", ScriptAuthor, 175)
 
+-- ============ ГЛАВНАЯ ============
 CreateSectionHeader(MainPage, "AIM", 10)
 
 local function CreateCheckbox(parent, text, yOffset, defaultState, callback)
@@ -469,7 +524,6 @@ local function CreateCheckbox(parent, text, yOffset, defaultState, callback)
     Btn.Parent = Container
 
     local state = defaultState
-
     Btn.MouseButton1Click:Connect(function()
         state = not state
         if state then
@@ -501,7 +555,6 @@ end
 local AutoAimContainer, Box, BoxStroke, Mark = CreateCheckbox(MainPage, "Auto-Aim", 40, false, function(v)
     autoAimEnabled = v
 end)
-
 AutoAimBox = Box
 AutoAimBoxStroke = BoxStroke
 AutoAimMark = Mark
@@ -512,7 +565,8 @@ CreateCheckbox(MainPage, "Кастомные звуки", 122, false, function(v
     customSoundsEnabled = v
 end)
 
-local function CreateIdField(parent, label, defaultId, yOffset, onApply)
+-- ПОЛЯ ID
+local function CreateIdField(parent, label, defaultId, yOffset, onChange)
     local Container = Instance.new("Frame")
     Container.Size = UDim2.new(1, -32, 0, 32)
     Container.Position = UDim2.new(0, 16, 0, yOffset)
@@ -584,19 +638,28 @@ local function CreateIdField(parent, label, defaultId, yOffset, onApply)
     ApplyBtn.MouseButton1Click:Connect(function()
         local id = tonumber(Input.Text)
         if id then
-            onApply(id)
+            onChange(id)
             ApplyBtn.BackgroundColor3 = Color3.fromRGB(80, 200, 80)
             task.wait(0.3)
             ApplyBtn.BackgroundColor3 = Color3.fromRGB(60, 80, 180)
         end
     end)
 
-    return Container
+    return Input
 end
 
-CreateIdField(MainPage, "Попадание 1", HitSoundIDs[1], 168, function(id) HitSoundIDs[1] = id end)
-CreateIdField(MainPage, "Попадание 2", HitSoundIDs[2], 204, function(id) HitSoundIDs[2] = id end)
-CreateIdField(MainPage, "Промах", MissSoundID, 240, function(id) MissSoundID = id end)
+CreateIdField(MainPage, "Попадание 1", HitSoundIDs[1], 168, function(id)
+    HitSoundIDs[1] = id
+    SaveFile("Hit1", tostring(id))
+end)
+CreateIdField(MainPage, "Попадание 2", HitSoundIDs[2], 204, function(id)
+    HitSoundIDs[2] = id
+    SaveFile("Hit2", tostring(id))
+end)
+CreateIdField(MainPage, "Промах", MissSoundID, 240, function(id)
+    MissSoundID = id
+    SaveFile("Miss", tostring(id))
+end)
 
 CreateSectionHeader(MainPage, "Статистика", 280)
 
@@ -618,12 +681,286 @@ Spacer.Position = UDim2.new(0, 0, 0, 348)
 Spacer.BackgroundTransparency = 1
 Spacer.Parent = MainPage
 
-CreateSectionHeader(SettingsPage, "Настройки", 16)
-CreateCard(SettingsPage, "Контент", "Добавим позже", 45)
+-- ============ НАСТРОЙКИ ============
+CreateSectionHeader(SettingsPage, "Тема оформления", 10)
 
-CreateSectionHeader(InfoPage, "Информация", 16)
-CreateCard(InfoPage, "Автор", ScriptAuthor, 45)
+local ThemeButtons = {}
 
+local function ApplyTheme(themeName)
+    Theme = Themes[themeName]
+    savedTheme = themeName
+    SaveFile("Theme", themeName)
+
+    -- Обновляем фон
+    MainFrame.BackgroundColor3 = Theme.Background
+    TitleBar.BackgroundColor3 = Theme.Surface
+    TitleBarFix.BackgroundColor3 = Theme.Surface
+    Sidebar.BackgroundColor3 = Theme.Surface
+    Logo.BackgroundColor3 = Theme.Accent
+    LogoInner.BackgroundColor3 = Theme.Background
+
+    TitleText.TextColor3 = Theme.Text
+    CloseBtn.BackgroundColor3 = Theme.Surface
+    CloseBtn.TextColor3 = Theme.TextDim
+
+    SidebarDivider.BackgroundColor3 = Theme.Stroke
+
+    -- Обновляем чекбоксы и кнопки — пересоздаём UI
+    pcall(function()
+        for _, obj in pairs(MainPage:GetChildren()) do
+            if obj:IsA("Frame") then
+                if obj.BackgroundColor3 ~= Color3.fromRGB(26, 26, 32) 
+                and obj.BackgroundColor3 ~= Color3.fromRGB(10, 10, 12) then
+                    -- пропускаем поля ID
+                end
+            end
+        end
+    end)
+
+    -- Применяем цвета к кнопкам темы
+    for name, btn in pairs(ThemeButtons) do
+        if name == themeName then
+            btn.BackgroundColor3 = Theme.Accent
+            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        else
+            btn.BackgroundColor3 = Theme.Surface
+            btn.TextColor3 = Theme.TextDim
+        end
+    end
+end
+
+local y = 40
+for name, colors in pairs(Themes) do
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(1, -32, 0, 36)
+    Btn.Position = UDim2.new(0, 16, 0, y)
+    Btn.BackgroundColor3 = Theme.Surface
+    Btn.Text = name .. "  (" .. tostring(colors.Accent) .. ")"
+    Btn.TextColor3 = Theme.TextDim
+    Btn.Font = Enum.Font.GothamBold
+    Btn.TextSize = 11
+    Btn.BorderSizePixel = 0
+    Btn.AutoButtonColor = false
+    Btn.Parent = SettingsPage
+    CreateCorner(Btn, 10)
+
+    local ColorStrip = Instance.new("Frame")
+    ColorStrip.Size = UDim2.new(0, 4, 1, -10)
+    ColorStrip.Position = UDim2.new(0, 6, 0, 5)
+    ColorStrip.BackgroundColor3 = colors.Accent
+    ColorStrip.BorderSizePixel = 0
+    ColorStrip.Parent = Btn
+    CreateCorner(ColorStrip, 2)
+
+    Btn.MouseButton1Click:Connect(function()
+        ApplyTheme(name)
+    end)
+
+    ThemeButtons[name] = Btn
+    y = y + 42
+end
+
+-- Отмечаем текущую тему
+if ThemeButtons[savedTheme] then
+    ThemeButtons[savedTheme].BackgroundColor3 = Theme.Accent
+    ThemeButtons[savedTheme].TextColor3 = Color3.fromRGB(255, 255, 255)
+end
+
+CreateSectionHeader(SettingsPage, "Сохранение", y + 10)
+
+local SaveBtn = Instance.new("TextButton")
+SaveBtn.Size = UDim2.new(1, -32, 0, 36)
+SaveBtn.Position = UDim2.new(0, 16, 0, y + 40)
+SaveBtn.BackgroundColor3 = Color3.fromRGB(60, 140, 60)
+SaveBtn.Text = "💾 СОХРАНИТЬ НАСТРОЙКИ"
+SaveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+SaveBtn.Font = Enum.Font.GothamBold
+SaveBtn.TextSize = 11
+SaveBtn.BorderSizePixel = 0
+SaveBtn.AutoButtonColor = false
+SaveBtn.Parent = SettingsPage
+CreateCorner(SaveBtn, 10)
+
+SaveBtn.MouseButton1Click:Connect(function()
+    SaveFile("Hit1", tostring(HitSoundIDs[1]))
+    SaveFile("Hit2", tostring(HitSoundIDs[2]))
+    SaveFile("Miss", tostring(MissSoundID))
+    SaveFile("Theme", savedTheme)
+    SaveBtn.Text = "✅ СОХРАНЕНО"
+    SaveBtn.BackgroundColor3 = Color3.fromRGB(60, 180, 60)
+    task.wait(1.5)
+    SaveBtn.Text = "💾 СОХРАНИТЬ НАСТРОЙКИ"
+    SaveBtn.BackgroundColor3 = Color3.fromRGB(60, 140, 60)
+end)
+
+local ResetBtn = Instance.new("TextButton")
+ResetBtn.Size = UDim2.new(1, -32, 0, 36)
+ResetBtn.Position = UDim2.new(0, 16, 0, y + 84)
+ResetBtn.BackgroundColor3 = Color3.fromRGB(160, 60, 60)
+ResetBtn.Text = "🗑 СБРОСИТЬ ВСЁ"
+ResetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ResetBtn.Font = Enum.Font.GothamBold
+ResetBtn.TextSize = 11
+ResetBtn.BorderSizePixel = 0
+ResetBtn.AutoButtonColor = false
+ResetBtn.Parent = SettingsPage
+CreateCorner(ResetBtn, 10)
+
+ResetBtn.MouseButton1Click:Connect(function()
+    pcall(function()
+        if delfile then
+            delfile("ZepHub_Hit1.json")
+            delfile("ZepHub_Hit2.json")
+            delfile("ZepHub_Miss.json")
+            delfile("ZepHub_Theme.json")
+        end
+    end)
+    ResetBtn.Text = "✅ СБРОШЕНО (перезапусти скрипт)"
+    ResetBtn.BackgroundColor3 = Color3.fromRGB(200, 80, 80)
+end)
+
+-- ============ ИНФО ============
+CreateSectionHeader(InfoPage, "О скрипте", 10)
+CreateCard(InfoPage, "Название", "Zep Hub", 40)
+CreateCard(InfoPage, "Версия", "v1.0 (Release)", 100)
+CreateCard(InfoPage, "Автор", "Z3pty0rbex (@Aminb1000)", 160)
+
+CreateSectionHeader(InfoPage, "Об игре", 230)
+CreateCard(InfoPage, "Название", "БПЛА [Новые дроны]", 260)
+CreateCard(InfoPage, "Создатель", "ILP Studio", 320)
+
+local OnlineLabel = Instance.new("TextLabel")
+OnlineLabel.Size = UDim2.new(1, -32, 0, 56)
+OnlineLabel.Position = UDim2.new(0, 16, 0, 380)
+OnlineLabel.BackgroundColor3 = Theme.Surface
+OnlineLabel.Text = "Онлайн: 0 игроков"
+OnlineLabel.TextColor3 = Theme.Text
+OnlineLabel.Font = Enum.Font.GothamMedium
+OnlineLabel.TextSize = 13
+OnlineLabel.TextXAlignment = Enum.TextXAlignment.Left
+OnlineLabel.Parent = InfoPage
+CreateCorner(OnlineLabel, 10)
+CreateStroke(OnlineLabel, Theme.Stroke, 1)
+
+local OnlinePad = Instance.new("UIPadding")
+OnlinePad.PaddingLeft = UDim.new(0, 14)
+OnlinePad.Parent = OnlineLabel
+
+local function UpdateOnline()
+    local count = #Players:GetPlayers()
+    OnlineLabel.Text = "Онлайн: " .. count .. " игроков"
+end
+
+task.spawn(function()
+    while true do
+        task.wait(2)
+        UpdateOnline()
+    end
+end)
+
+CreateSectionHeader(InfoPage, "Статистика сессии", 450)
+
+local SessionStats = Instance.new("TextLabel")
+SessionStats.Size = UDim2.new(1, -32, 0, 96)
+SessionStats.Position = UDim2.new(0, 16, 0, 480)
+SessionStats.BackgroundColor3 = Theme.Surface
+SessionStats.Text = "Сбито: 0\nПромахов: 0\nТочность: 0%"
+SessionStats.TextColor3 = Theme.Text
+SessionStats.Font = Enum.Font.Code
+SessionStats.TextSize = 11
+SessionStats.TextXAlignment = Enum.TextXAlignment.Left
+SessionStats.TextYAlignment = Enum.TextYAlignment.Top
+SessionStats.Parent = InfoPage
+CreateCorner(SessionStats, 10)
+CreateStroke(SessionStats, Theme.Stroke, 1)
+
+local SessPad = Instance.new("UIPadding")
+SessPad.PaddingTop = UDim.new(0, 10)
+SessPad.PaddingLeft = UDim.new(0, 14)
+SessPad.Parent = SessionStats
+
+local function UpdateSessionStats()
+    local total = hitCount + missCount
+    local acc = 0
+    if total > 0 then
+        acc = math.floor((hitCount / total) * 100)
+    end
+    SessionStats.Text = "Сбито: " .. hitCount
+    SessionStats.Text = SessionStats.Text .. "\nПромахов: " .. missCount
+    SessionStats.Text = SessionStats.Text .. "\nТочность: " .. acc .. "%"
+end
+
+task.spawn(function()
+    while true do
+        task.wait(1)
+        UpdateSessionStats()
+    end
+end)
+
+CreateSectionHeader(InfoPage, "Changelog", 590)
+
+local ChangelogData = {
+    {"v1.0", "Release", "Инфо, настройки, темы, сохранение, статистика"},
+    {"v0.9", "Themes Update", "4 темы: Midnight, Crimson, Emerald, Purple"},
+    {"v0.8", "Settings Core", "Сохранение ID звуков и темы"},
+    {"v0.7", "Counter Update", "Счётчик, фикс тапов, скроллинг"},
+    {"v0.6", "Death Fix", "Авто-выключение при смерти"},
+    {"v0.5", "Height Check", "Игнор упавших дронов"},
+    {"v0.4", "Smart Hit Detection", "Детект попадания по разлёту частей"},
+    {"v0.3", "Fire Rate Fix", "Промах через 3 сек"},
+    {"v0.2", "Better Detection", "Проверка попадания, скроллинг"},
+    {"v0.1", "First Release", "Auto-Aim, 2 клика за круг"},
+}
+
+local yCL = 620
+for _, entry in ipairs(ChangelogData) do
+    local ver, name, desc = entry[1], entry[2], entry[3]
+    local Card = Instance.new("Frame")
+    Card.Size = UDim2.new(1, -32, 0, 50)
+    Card.Position = UDim2.new(0, 16, 0, yCL)
+    Card.BackgroundColor3 = Theme.Surface
+    Card.BorderSizePixel = 0
+    Card.Parent = InfoPage
+    CreateCorner(Card, 10)
+    CreateStroke(Card, Theme.Stroke, 1)
+
+    local VerLabel = Instance.new("TextLabel")
+    VerLabel.Size = UDim2.new(0, 60, 0, 20)
+    VerLabel.Position = UDim2.new(0, 14, 0, 6)
+    VerLabel.BackgroundTransparency = 1
+    VerLabel.Text = ver
+    VerLabel.TextColor3 = Theme.Accent
+    VerLabel.Font = Enum.Font.GothamBold
+    VerLabel.TextSize = 12
+    VerLabel.TextXAlignment = Enum.TextXAlignment.Left
+    VerLabel.Parent = Card
+
+    local NameLabel = Instance.new("TextLabel")
+    NameLabel.Size = UDim2.new(1, -100, 0, 20)
+    NameLabel.Position = UDim2.new(0, 80, 0, 6)
+    NameLabel.BackgroundTransparency = 1
+    NameLabel.Text = name
+    NameLabel.TextColor3 = Theme.Text
+    NameLabel.Font = Enum.Font.GothamMedium
+    NameLabel.TextSize = 11
+    NameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    NameLabel.Parent = Card
+
+    local DescLabel = Instance.new("TextLabel")
+    DescLabel.Size = UDim2.new(1, -28, 0, 16)
+    DescLabel.Position = UDim2.new(0, 14, 0, 28)
+    DescLabel.BackgroundTransparency = 1
+    DescLabel.Text = desc
+    DescLabel.TextColor3 = Theme.TextDim
+    DescLabel.Font = Enum.Font.Gotham
+    DescLabel.TextSize = 10
+    DescLabel.TextXAlignment = Enum.TextXAlignment.Left
+    DescLabel.Parent = Card
+
+    yCL = yCL + 56
+end
+
+-- ВКЛАДКИ
 local Pages = {
     Welcome = WelcomePage,
     Main = MainPage,
@@ -711,6 +1048,7 @@ local function CreateTab(name, pageKey)
             }):Play()
         end
     end)
+
     Tab.MouseLeave:Connect(function()
         if ActiveTab ~= Tab then
             TweenService:Create(Tab, TweenInfo.new(0.15), {
@@ -739,6 +1077,7 @@ CreateTab("Инфо", "Info")
 
 SwitchPage("Welcome")
 
+-- ОТКРЫВАШКА
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
 ToggleBtn.Position = UDim2.new(0, 20, 0.5, -25)
@@ -822,6 +1161,18 @@ ToggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
+ToggleBtn.MouseEnter:Connect(function()
+    TweenService:Create(ToggleBtn, TweenInfo.new(0.15), {
+        BackgroundColor3 = Theme.SurfaceHover
+    }):Play()
+end)
+ToggleBtn.MouseLeave:Connect(function()
+    TweenService:Create(ToggleBtn, TweenInfo.new(0.15), {
+        BackgroundColor3 = Theme.Background
+    }):Play()
+end)
+
+-- ПЕРЕТАСКИВАНИЕ ОКНА
 local dragging, dragStart, startPos
 
 TitleBar.InputBegan:Connect(function(input)
@@ -859,6 +1210,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
+-- ОБНОВЛЕНИЕ FIRE BTN
 task.spawn(function()
     while true do
         task.wait(0.5)
@@ -867,11 +1219,9 @@ task.spawn(function()
     end
 end)
 
--- ФУНКЦИИ ДЛЯ СМЕРТИ / РЕСПАВНА
 local function OnDeath()
     autoAimEnabled = false
     UpdateCheckboxVisual()
-
     fireBtn = nil
     fireCountThisCycle = 0
     watchedParts = {}
@@ -889,9 +1239,7 @@ local function BindHumanoid(character)
     end
 end
 
-if plr.Character then
-    BindHumanoid(plr.Character)
-end
+if plr.Character then BindHumanoid(plr.Character) end
 
 plr.CharacterAdded:Connect(function(char)
     fireBtn = nil
@@ -903,7 +1251,6 @@ plr.CharacterAdded:Connect(function(char)
     BindHumanoid(char)
 
     task.wait(1.5)
-
     local newBtn = FindFireButton()
     if newBtn then fireBtn = newBtn end
 end)
@@ -912,7 +1259,6 @@ end)
 RunService.RenderStepped:Connect(function()
     local now = tick()
 
-    -- ДЕТЕКТ ПОПАДАНИЯ
     if hasPending and #watchedParts >= 2 then
         local firstPart = watchedParts[1]
         local maxGrowth = 0
@@ -941,9 +1287,7 @@ RunService.RenderStepped:Connect(function()
                         local baseDist = baseDistances[i - 1] or 0
                         if baseDist > 0.1 then
                             local growth = nowDist / baseDist
-                            if growth > maxGrowth then
-                                maxGrowth = growth
-                            end
+                            if growth > maxGrowth then maxGrowth = growth end
                         end
                     end
                 end
@@ -969,7 +1313,6 @@ RunService.RenderStepped:Connect(function()
 
     if not autoAimEnabled then return end
 
-    -- Проверка Stinger-M в руке
     local hasStinger = plr.Character and plr.Character:FindFirstChild("Stinger-M")
     if not hasStinger then
         fireCountThisCycle = 0
@@ -991,7 +1334,6 @@ RunService.RenderStepped:Connect(function()
 
             if IsFireBtnValid() then
                 local isMoving = IsPlayerMoving()
-
                 if stopWhenMoving and isMoving then
                     -- стоп
                 elseif not green then
@@ -1018,4 +1360,4 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-print("Zep Hub v0.7: загрузка завершена")
+print("Zep Hub v1.0 (Release) загружен")
