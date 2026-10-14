@@ -45,7 +45,7 @@ local function CreateStroke(parent, color, thickness)
     return s
 end
 
--- ЗВУКИ (ID)
+-- ЗВУКИ
 local HitSoundIDs = {
     136688569661082,
     7531253465,
@@ -170,9 +170,7 @@ local function TapButton(button)
     VIM:SendMouseButtonEvent(x, y, 0, false, game, 1)
 end
 
--- ============================================
 -- UI
-
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 520, 0, 420)
 MainFrame.Position = UDim2.new(0.5, -260, 0.5, -210)
@@ -272,7 +270,6 @@ ContentArea.Position = UDim2.new(0, 140, 0, 48)
 ContentArea.BackgroundTransparency = 1
 ContentArea.Parent = MainFrame
 
--- СТРАНИЦЫ (Welcome / Settings / Info — обычные)
 local WelcomePage = Instance.new("Frame")
 WelcomePage.Size = UDim2.new(1, 0, 1, 0)
 WelcomePage.BackgroundTransparency = 1
@@ -374,7 +371,6 @@ CreateCard(WelcomePage, "Zep Hub", "Загружен и готов к работ
 CreateCard(WelcomePage, "Версия", ScriptVersion, 110)
 CreateCard(WelcomePage, "Автор", ScriptAuthor, 175)
 
--- ============================================
 -- MAIN PAGE
 CreateSectionHeader(MainPage, "AIM", 10)
 
@@ -462,15 +458,12 @@ CreateCheckbox(MainPage, "Auto-Aim", 40, false, function(v)
     autoAimEnabled = v
 end)
 
--- ============================================
--- ЗВУКИ
 CreateSectionHeader(MainPage, "Звуки", 92)
 
 CreateCheckbox(MainPage, "Кастомные звуки", 122, false, function(v)
     customSoundsEnabled = v
 end)
 
--- ПОЛЯ ДЛЯ ID (только при включённых кастомных)
 local function CreateIdField(parent, label, defaultId, yOffset, onApply)
     local Container = Instance.new("Frame")
     Container.Size = UDim2.new(1, -32, 0, 32)
@@ -567,7 +560,6 @@ CreateIdField(MainPage, "Промах", MissSoundID, 240, function(id)
     MissSoundID = id
 end)
 
--- СТАТИСТИКА
 CreateSectionHeader(MainPage, "Статистика", 280)
 
 local StatsLabel = Instance.new("TextLabel")
@@ -582,14 +574,12 @@ StatsLabel.Parent = MainPage
 CreateCorner(StatsLabel, 10)
 CreateStroke(StatsLabel, Theme.Stroke, 1)
 
--- Заглушка, чтобы скролл был правильной высоты
 local Spacer = Instance.new("Frame")
 Spacer.Size = UDim2.new(1, 0, 0, 20)
 Spacer.Position = UDim2.new(0, 0, 0, 348)
 Spacer.BackgroundTransparency = 1
 Spacer.Parent = MainPage
 
--- SETTINGS / INFO
 CreateSectionHeader(SettingsPage, "Настройки", 16)
 CreateCard(SettingsPage, "Контент", "Добавим позже", 45)
 
@@ -713,7 +703,6 @@ CreateTab("Инфо", "Info")
 
 SwitchPage("Welcome")
 
--- ОТКРЫВАШКА
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
 ToggleBtn.Position = UDim2.new(0, 20, 0.5, -25)
@@ -850,11 +839,9 @@ plr.CharacterAdded:Connect(function(char)
     if newBtn then fireBtn = newBtn end
 end)
 
--- ГЛАВНЫЙ ЦИКЛ
 RunService.RenderStepped:Connect(function()
     local now = tick()
 
-    -- Проверка попадания
     if pendingDrone then
         if pendingDrone.Parent then
             if now - pendingTime >= CHECK_TIME then
