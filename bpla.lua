@@ -95,7 +95,6 @@ local Success, Err = pcall(function()
     local plr = Players.LocalPlayer
     local cam = workspace.CurrentCamera
 
-    -- ФУНКЦИИ СОЗДАНИЯ
     local function CreateCorner(parent, radius)
         local c = Instance.new("UICorner")
         c.CornerRadius = UDim.new(0, radius or 12)
@@ -113,7 +112,6 @@ local Success, Err = pcall(function()
         return s
     end
 
-    -- СОХРАНЕНИЕ
     local function SaveFile(name, data)
         pcall(function()
             if writefile then
@@ -140,18 +138,14 @@ local Success, Err = pcall(function()
     do
         local themeData = LoadFile("Theme")
         if themeData then savedTheme = themeData end
-
         local s1 = LoadFile("Hit1")
         if s1 and tonumber(s1) then savedHit1 = tonumber(s1) end
-
         local s2 = LoadFile("Hit2")
         if s2 and tonumber(s2) then savedHit2 = tonumber(s2) end
-
         local sm = LoadFile("Miss")
         if sm and tonumber(sm) then savedMiss = tonumber(sm) end
     end
 
-    -- ТЕМЫ
     local Themes = {
         Midnight = {
             Background   = Color3.fromRGB(18, 18, 26),
@@ -193,7 +187,6 @@ local Success, Err = pcall(function()
 
     local Theme = Themes[savedTheme] or Themes.Midnight
 
-    -- ЗВУКИ
     local HitSoundIDs = {savedHit1, savedHit2}
     local MissSoundID = savedMiss
 
@@ -217,9 +210,8 @@ local Success, Err = pcall(function()
         PlaySoundById(MissSoundID)
     end
 
-    -- СОСТОЯНИЕ
     local ScriptName = "Zep Hub"
-    local ScriptVersion = "v1.0"
+    local ScriptVersion = "v1.1"
     local ScriptAuthor = "Z3pty0rbex (@Aminb1000)"
 
     local autoAimEnabled = false
@@ -474,7 +466,6 @@ local Success, Err = pcall(function()
     ContentArea.BackgroundTransparency = 1
     ContentArea.Parent = MainFrame
 
-    -- СТРАНИЦЫ
     local WelcomePage = Instance.new("Frame")
     WelcomePage.Size = UDim2.new(1, 0, 1, 0)
     WelcomePage.BackgroundTransparency = 1
@@ -515,6 +506,12 @@ local Success, Err = pcall(function()
     InfoPage.Parent = ContentArea
 
     -- ХЕЛПЕРЫ UI
+    local ThemedElements = {}  -- таблица всех цветных элементов
+
+    local function RegisterThemed(element, type_)
+        table.insert(ThemedElements, {obj = element, type = type_})
+    end
+
     local function CreateSectionHeader(parent, text, yOffset)
         local Header = Instance.new("TextLabel")
         Header.Size = UDim2.new(1, -32, 0, 20)
@@ -526,6 +523,7 @@ local Success, Err = pcall(function()
         Header.TextSize = 10
         Header.TextXAlignment = Enum.TextXAlignment.Left
         Header.Parent = parent
+        RegisterThemed(Header, "accent_text")
         return Header
     end
 
@@ -537,7 +535,9 @@ local Success, Err = pcall(function()
         Card.BorderSizePixel = 0
         Card.Parent = parent
         CreateCorner(Card, 10)
-        CreateStroke(Card, Theme.Stroke, 1)
+        local CardStroke = CreateStroke(Card, Theme.Stroke, 1)
+        RegisterThemed(Card, "surface")
+        RegisterThemed(CardStroke, "stroke")
 
         local Title = Instance.new("TextLabel")
         Title.Size = UDim2.new(1, -20, 0, 20)
@@ -549,6 +549,7 @@ local Success, Err = pcall(function()
         Title.TextSize = 13
         Title.TextXAlignment = Enum.TextXAlignment.Left
         Title.Parent = Card
+        RegisterThemed(Title, "text")
 
         local Subtitle = Instance.new("TextLabel")
         Subtitle.Size = UDim2.new(1, -20, 0, 16)
@@ -560,6 +561,7 @@ local Success, Err = pcall(function()
         Subtitle.TextSize = 11
         Subtitle.TextXAlignment = Enum.TextXAlignment.Left
         Subtitle.Parent = Card
+        RegisterThemed(Subtitle, "textdim")
 
         Card.MouseEnter:Connect(function()
             TweenService:Create(Card, TweenInfo.new(0.15), {
@@ -580,7 +582,6 @@ local Success, Err = pcall(function()
     CreateCard(WelcomePage, "Версия", ScriptVersion, 110)
     CreateCard(WelcomePage, "Автор", ScriptAuthor, 175)
 
-    -- ГЛАВНАЯ
     CreateSectionHeader(MainPage, "AIM", 10)
 
     local function CreateCheckbox(parent, text, yOffset, defaultState, callback)
@@ -591,7 +592,9 @@ local Success, Err = pcall(function()
         Container.BorderSizePixel = 0
         Container.Parent = parent
         CreateCorner(Container, 10)
-        CreateStroke(Container, Theme.Stroke, 1)
+        local CStroke = CreateStroke(Container, Theme.Stroke, 1)
+        RegisterThemed(Container, "surface")
+        RegisterThemed(CStroke, "stroke")
 
         local Box = Instance.new("Frame")
         Box.Size = UDim2.new(0, 20, 0, 20)
@@ -625,6 +628,7 @@ local Success, Err = pcall(function()
         Label.TextSize = 12
         Label.TextXAlignment = Enum.TextXAlignment.Left
         Label.Parent = Container
+        RegisterThemed(Label, "text")
 
         local Btn = Instance.new("TextButton")
         Btn.Size = UDim2.new(1, 0, 1, 0)
@@ -674,7 +678,6 @@ local Success, Err = pcall(function()
         customSoundsEnabled = v
     end)
 
-    -- ПОЛЯ ID
     local function CreateIdField(parent, label, defaultId, yOffset, onChange)
         local Container = Instance.new("Frame")
         Container.Size = UDim2.new(1, -32, 0, 32)
@@ -683,7 +686,9 @@ local Success, Err = pcall(function()
         Container.BorderSizePixel = 0
         Container.Parent = parent
         CreateCorner(Container, 8)
-        CreateStroke(Container, Theme.Stroke, 1)
+        local IStroke = CreateStroke(Container, Theme.Stroke, 1)
+        RegisterThemed(Container, "surface")
+        RegisterThemed(IStroke, "stroke")
 
         local Label = Instance.new("TextLabel")
         Label.Size = UDim2.new(0, 90, 1, 0)
@@ -695,6 +700,7 @@ local Success, Err = pcall(function()
         Label.TextSize = 10
         Label.TextXAlignment = Enum.TextXAlignment.Left
         Label.Parent = Container
+        RegisterThemed(Label, "textdim")
 
         local Input = Instance.new("TextBox")
         Input.Size = UDim2.new(1, -180, 1, 0)
@@ -709,6 +715,7 @@ local Success, Err = pcall(function()
         Input.ClearTextOnFocus = false
         Input.Parent = Container
         CreateCorner(Input, 6)
+        RegisterThemed(Input, "text")
 
         local InputPad = Instance.new("UIPadding")
         InputPad.PaddingLeft = UDim.new(0, 6)
@@ -782,7 +789,10 @@ local Success, Err = pcall(function()
     StatsLabel.TextSize = 12
     StatsLabel.Parent = MainPage
     CreateCorner(StatsLabel, 10)
-    CreateStroke(StatsLabel, Theme.Stroke, 1)
+    local SStroke = CreateStroke(StatsLabel, Theme.Stroke, 1)
+    RegisterThemed(StatsLabel, "surface")
+    RegisterThemed(StatsLabel, "text")
+    RegisterThemed(SStroke, "stroke")
 
     local Spacer = Instance.new("Frame")
     Spacer.Size = UDim2.new(1, 0, 0, 20)
@@ -790,7 +800,6 @@ local Success, Err = pcall(function()
     Spacer.BackgroundTransparency = 1
     Spacer.Parent = MainPage
 
-    -- НАСТРОЙКИ
     CreateSectionHeader(SettingsPage, "Тема оформления", 10)
 
     local ThemeButtons = {}
@@ -813,6 +822,30 @@ local Success, Err = pcall(function()
 
         SidebarDivider.BackgroundColor3 = Theme.Stroke
 
+        -- Обновляем ВСЕ зарегистрированные элементы
+        for _, entry in ipairs(ThemedElements) do
+            local obj = entry.obj
+            local t = entry.type
+            if obj and obj.Parent then
+                if t == "surface" then
+                    obj.BackgroundColor3 = Theme.Surface
+                elseif t == "surface_hover" then
+                    obj.BackgroundColor3 = Theme.SurfaceHover
+                elseif t == "accent" then
+                    obj.BackgroundColor3 = Theme.Accent
+                elseif t == "text" then
+                    obj.TextColor3 = Theme.Text
+                elseif t == "textdim" then
+                    obj.TextColor3 = Theme.TextDim
+                elseif t == "accent_text" then
+                    obj.TextColor3 = Theme.Accent
+                elseif t == "stroke" then
+                    obj.Color = Theme.Stroke
+                end
+            end
+        end
+
+        -- Обновляем кнопки тем
         for name, btn in pairs(ThemeButtons) do
             if name == themeName then
                 btn.BackgroundColor3 = Theme.Accent
@@ -820,6 +853,19 @@ local Success, Err = pcall(function()
             else
                 btn.BackgroundColor3 = Theme.Surface
                 btn.TextColor3 = Theme.TextDim
+            end
+        end
+
+        -- Обновляем чекбокс Auto-Aim
+        if AutoAimBox then
+            if autoAimEnabled then
+                AutoAimBox.BackgroundColor3 = Theme.Accent
+                if AutoAimBoxStroke then AutoAimBoxStroke.Color = Theme.Accent end
+                if AutoAimMark then AutoAimMark.ImageColor3 = Theme.Accent end
+            else
+                AutoAimBox.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
+                if AutoAimBoxStroke then AutoAimBoxStroke.Color = Theme.Stroke end
+                if AutoAimMark then AutoAimMark.ImageColor3 = Theme.Accent end
             end
         end
     end
@@ -913,10 +959,9 @@ local Success, Err = pcall(function()
         ResetBtn.BackgroundColor3 = Color3.fromRGB(200, 80, 80)
     end)
 
-    -- ИНФО
     CreateSectionHeader(InfoPage, "О скрипте", 10)
     CreateCard(InfoPage, "Название", "Zep Hub", 40)
-    CreateCard(InfoPage, "Версия", "v1.0 (Release)", 100)
+    CreateCard(InfoPage, "Версия", "v1.1 (Release)", 100)
     CreateCard(InfoPage, "Автор", "Z3pty0rbex (@Aminb1000)", 160)
 
     CreateSectionHeader(InfoPage, "Об игре", 230)
@@ -934,7 +979,10 @@ local Success, Err = pcall(function()
     OnlineLabel.TextXAlignment = Enum.TextXAlignment.Left
     OnlineLabel.Parent = InfoPage
     CreateCorner(OnlineLabel, 10)
-    CreateStroke(OnlineLabel, Theme.Stroke, 1)
+    local OStroke = CreateStroke(OnlineLabel, Theme.Stroke, 1)
+    RegisterThemed(OnlineLabel, "surface")
+    RegisterThemed(OnlineLabel, "text")
+    RegisterThemed(OStroke, "stroke")
 
     local OnlinePad = Instance.new("UIPadding")
     OnlinePad.PaddingLeft = UDim.new(0, 14)
@@ -949,7 +997,6 @@ local Success, Err = pcall(function()
         end
     end)
 
-    -- ВКЛАДКИ
     local Pages = {
         Welcome = WelcomePage,
         Main = MainPage,
@@ -1000,6 +1047,7 @@ local Success, Err = pcall(function()
         Label.TextSize = 13
         Label.TextXAlignment = Enum.TextXAlignment.Left
         Label.Parent = Tab
+        RegisterThemed(Label, "textdim")
 
         local SetActive = function(state)
             if state then
@@ -1066,7 +1114,6 @@ local Success, Err = pcall(function()
 
     SwitchPage("Welcome")
 
-    -- ОТКРЫВАШКА
     local ToggleBtn = Instance.new("TextButton")
     ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
     ToggleBtn.Position = UDim2.new(0, 20, 0.5, -25)
@@ -1076,7 +1123,7 @@ local Success, Err = pcall(function()
     ToggleBtn.Active = true
     ToggleBtn.Parent = ScreenGui2
     CreateCorner(ToggleBtn, 25)
-    CreateStroke(ToggleBtn, Theme.Accent, 1.5)
+    local TStroke = CreateStroke(ToggleBtn, Theme.Accent, 1.5)
 
     local ToggleIcon = Instance.new("Frame")
     ToggleIcon.Size = UDim2.new(0, 22, 0, 22)
@@ -1150,7 +1197,6 @@ local Success, Err = pcall(function()
         end
     end)
 
-    -- ПЕРЕТАСКИВАНИЕ
     local dragging, dragStart, startPos
 
     TitleBar.InputBegan:Connect(function(input)
@@ -1188,7 +1234,6 @@ local Success, Err = pcall(function()
         end)
     end)
 
-    -- FIRE BTN
     task.spawn(function()
         while true do
             task.wait(0.5)
@@ -1233,7 +1278,6 @@ local Success, Err = pcall(function()
         if newBtn then fireBtn = newBtn end
     end)
 
-    -- ГЛАВНЫЙ ЦИКЛ
     RunService.RenderStepped:Connect(function()
         local now = tick()
 
@@ -1338,7 +1382,6 @@ local Success, Err = pcall(function()
         end
     end)
 
-    -- ФЛАГ УСПЕХА
     _G.ZepHub_OK = true
 
 end)
@@ -1346,7 +1389,6 @@ end)
 if not Success then
     ShowError(tostring(Err))
 else
-    -- Всё ок — ничего не делаем, ErrorFrame не показываем
     if not _G.ZepHub_OK then
         ShowError("Pcall прошёл, но _G.ZepHub_OK = nil")
     end
