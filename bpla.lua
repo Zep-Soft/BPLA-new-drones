@@ -18,7 +18,7 @@ local Theme = {
 }
 
 local ScriptName = "Zep Hub"
-local ScriptVersion = "v0.1"
+local ScriptVersion = "v0.3"
 local ScriptAuthor = "Z3pty0rbex (@Aminb1000)"
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -86,7 +86,7 @@ local fireCountThisCycle = 0
 
 local pendingDrone = nil
 local pendingTime = 0
-local CHECK_TIME = 5
+local CHECK_TIME = 3
 
 local hitCount = 0
 local missCount = 0
@@ -288,7 +288,6 @@ InfoPage.BackgroundTransparency = 1
 InfoPage.Visible = false
 InfoPage.Parent = ContentArea
 
--- ГЛАВНАЯ — СО СКРОЛЛОМ
 local MainPage = Instance.new("ScrollingFrame")
 MainPage.Size = UDim2.new(1, 0, 1, 0)
 MainPage.BackgroundTransparency = 1
@@ -371,7 +370,6 @@ CreateCard(WelcomePage, "Zep Hub", "Загружен и готов к работ
 CreateCard(WelcomePage, "Версия", ScriptVersion, 110)
 CreateCard(WelcomePage, "Автор", ScriptAuthor, 175)
 
--- MAIN PAGE
 CreateSectionHeader(MainPage, "AIM", 10)
 
 local function CreateCheckbox(parent, text, yOffset, defaultState, callback)
@@ -586,7 +584,6 @@ CreateCard(SettingsPage, "Контент", "Добавим позже", 45)
 CreateSectionHeader(InfoPage, "Информация", 16)
 CreateCard(InfoPage, "Автор", ScriptAuthor, 45)
 
--- ВКЛАДКИ
 local Pages = {
     Welcome = WelcomePage,
     Main = MainPage,
@@ -842,21 +839,22 @@ end)
 RunService.RenderStepped:Connect(function()
     local now = tick()
 
+    -- ПРОВЕРКА ПОПАДАНИЯ/ПРОМАХА (только наш дрон)
     if pendingDrone then
-        if pendingDrone.Parent then
-            if now - pendingTime >= CHECK_TIME then
-                missCount = missCount + 1
-                if customSoundsEnabled then
-                    PlayMissSound()
-                end
-                StatsLabel.Text = "Сбито: " .. hitCount .. "  ·  Промахов: " .. missCount
-                pendingDrone = nil
-                pendingTime = 0
-            end
-        else
+        if not pendingDrone.Parent then
+            -- Дрон удалён = наш попал
             hitCount = hitCount + 1
             if customSoundsEnabled then
                 PlayHitSound()
+            end
+            StatsLabel.Text = "Сбито: " .. hitCount .. "  ·  Промахов: " .. missCount
+            pendingDrone = nil
+            pendingTime = 0
+        elseif now - pendingTime >= CHECK_TIME then
+            -- 3 сек прошло, дрон жив = промах
+            missCount = missCount + 1
+            if customSoundsEnabled then
+                PlayMissSound()
             end
             StatsLabel.Text = "Сбито: " .. hitCount .. "  ·  Промахов: " .. missCount
             pendingDrone = nil
@@ -913,4 +911,4 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-print("Zep Hub v0.1: загрузка завершена")
+print("Zep Hub v0.3: загрузка завершена")
