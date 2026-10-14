@@ -7,7 +7,25 @@ local SoundService = game:GetService("SoundService")
 local plr = Players.LocalPlayer
 local cam = workspace.CurrentCamera
 
--- СОХРАНЕНИЕ / ЗАГРУЗКА
+-- ФУНКЦИИ СОЗДАНИЯ (ОБЪЯВЛЕНЫ СРАЗУ)
+local function CreateCorner(parent, radius)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, radius or 12)
+    c.Parent = parent
+    return c
+end
+
+local function CreateStroke(parent, color, thickness)
+    local s = Instance.new("UIStroke")
+    s.Color = color or Color3.fromRGB(50, 50, 60)
+    s.Thickness = thickness or 1
+    s.Transparency = 0.3
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    s.Parent = parent
+    return s
+end
+
+-- СОХРАНЕНИЕ
 local function SaveFile(name, data)
     pcall(function()
         if writefile then
@@ -26,7 +44,6 @@ local function LoadFile(name)
     return data
 end
 
--- ЗАГРУЖАЕМ СОХРАНЕНИЯ
 local savedTheme = "Midnight"
 local savedHit1 = 136688569661082
 local savedHit2 = 7531253465
@@ -46,7 +63,7 @@ do
     if sm and tonumber(sm) then savedMiss = tonumber(sm) end
 end
 
--- ЦВЕТОВЫЕ ТЕМЫ
+-- ТЕМЫ
 local Themes = {
     Midnight = {
         Background   = Color3.fromRGB(18, 18, 26),
@@ -116,7 +133,6 @@ end
 local ScriptName = "Zep Hub"
 local ScriptVersion = "v1.0"
 local ScriptAuthor = "Z3pty0rbex (@Aminb1000)"
-local sessionStart = tick()
 
 local autoAimEnabled = false
 local autoFireEnabled = true
@@ -264,8 +280,7 @@ local function CaptureDrone(drone)
     return parts, baseDists
 end
 
--- ============ СОЗДАНИЕ UI ============
-
+-- SCREENGUI + MAIN FRAME
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "ZepHub_UI"
 ScreenGui.ResetOnSpawn = false
@@ -273,25 +288,6 @@ ScreenGui.IgnoreGuiInset = true
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = game:GetService("CoreGui")
 
--- ФУНКЦИИ ПОСЛЕ SCREENGUI
-local function CreateCorner(parent, radius)
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, radius or 12)
-    c.Parent = parent
-    return c
-end
-
-local function CreateStroke(parent, color, thickness)
-    local s = Instance.new("UIStroke")
-    s.Color = color or Theme.Stroke
-    s.Thickness = thickness or 1
-    s.Transparency = 0.3
-    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    s.Parent = parent
-    return s
-end
-
--- MAIN FRAME
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 520, 0, 420)
 MainFrame.Position = UDim2.new(0.5, -260, 0.5, -210)
@@ -430,7 +426,6 @@ InfoPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
 InfoPage.Visible = false
 InfoPage.Parent = ContentArea
 
--- ХЕЛПЕРЫ UI
 local function CreateSectionHeader(parent, text, yOffset)
     local Header = Instance.new("TextLabel")
     Header.Size = UDim2.new(1, -32, 0, 20)
@@ -491,13 +486,12 @@ local function CreateCard(parent, title, subtitle, yOffset)
     return Card
 end
 
--- WELCOME
 CreateSectionHeader(WelcomePage, "Добро пожаловать", 16)
 CreateCard(WelcomePage, "Zep Hub", "Загружен и готов к работе", 45)
 CreateCard(WelcomePage, "Версия", ScriptVersion, 110)
 CreateCard(WelcomePage, "Автор", ScriptAuthor, 175)
 
--- ============ ГЛАВНАЯ ============
+-- ГЛАВНАЯ
 CreateSectionHeader(MainPage, "AIM", 10)
 
 local function CreateCheckbox(parent, text, yOffset, defaultState, callback)
@@ -591,7 +585,6 @@ CreateCheckbox(MainPage, "Кастомные звуки", 122, false, function(v
     customSoundsEnabled = v
 end)
 
--- ПОЛЯ ID
 local function CreateIdField(parent, label, defaultId, yOffset, onChange)
     local Container = Instance.new("Frame")
     Container.Size = UDim2.new(1, -32, 0, 32)
@@ -707,7 +700,7 @@ Spacer.Position = UDim2.new(0, 0, 0, 348)
 Spacer.BackgroundTransparency = 1
 Spacer.Parent = MainPage
 
--- ============ НАСТРОЙКИ ============
+-- НАСТРОЙКИ
 CreateSectionHeader(SettingsPage, "Тема оформления", 10)
 
 local ThemeButtons = {}
@@ -826,11 +819,11 @@ ResetBtn.MouseButton1Click:Connect(function()
             delfile("ZepHub_Theme.json")
         end
     end)
-    ResetBtn.Text = "✅ СБРОШЕНО (перезапусти скрипт)"
+    ResetBtn.Text = "✅ СБРОШЕНО"
     ResetBtn.BackgroundColor3 = Color3.fromRGB(200, 80, 80)
 end)
 
--- ============ ИНФО ============
+-- ИНФО
 CreateSectionHeader(InfoPage, "О скрипте", 10)
 CreateCard(InfoPage, "Название", "Zep Hub", 40)
 CreateCard(InfoPage, "Версия", "v1.0 (Release)", 100)
@@ -857,15 +850,12 @@ local OnlinePad = Instance.new("UIPadding")
 OnlinePad.PaddingLeft = UDim.new(0, 14)
 OnlinePad.Parent = OnlineLabel
 
-local function UpdateOnline()
-    local count = #Players:GetPlayers()
-    OnlineLabel.Text = "Онлайн: " .. count .. " игроков"
-end
-
 task.spawn(function()
     while true do
         task.wait(2)
-        UpdateOnline()
+        pcall(function()
+            OnlineLabel.Text = "Онлайн: " .. #Players:GetPlayers() .. " игроков"
+        end)
     end
 end)
 
@@ -890,21 +880,19 @@ SessPad.PaddingTop = UDim.new(0, 10)
 SessPad.PaddingLeft = UDim.new(0, 14)
 SessPad.Parent = SessionStats
 
-local function UpdateSessionStats()
-    local total = hitCount + missCount
-    local acc = 0
-    if total > 0 then
-        acc = math.floor((hitCount / total) * 100)
-    end
-    SessionStats.Text = "Сбито: " .. hitCount
-    SessionStats.Text = SessionStats.Text .. "\nПромахов: " .. missCount
-    SessionStats.Text = SessionStats.Text .. "\nТочность: " .. acc .. "%"
-end
-
 task.spawn(function()
     while true do
         task.wait(1)
-        UpdateSessionStats()
+        pcall(function()
+            local total = hitCount + missCount
+            local acc = 0
+            if total > 0 then
+                acc = math.floor((hitCount / total) * 100)
+            end
+            SessionStats.Text = "Сбито: " .. hitCount
+            SessionStats.Text = SessionStats.Text .. "\nПромахов: " .. missCount
+            SessionStats.Text = SessionStats.Text .. "\nТочность: " .. acc .. "%"
+        end)
     end
 end)
 
@@ -1183,7 +1171,7 @@ ToggleBtn.MouseLeave:Connect(function()
     }):Play()
 end)
 
--- ПЕРЕТАСКИВАНИЕ ОКНА
+-- ПЕРЕТАСКИВАНИЕ
 local dragging, dragStart, startPos
 
 TitleBar.InputBegan:Connect(function(input)
@@ -1221,7 +1209,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
--- ОБНОВЛЕНИЕ FIRE BTN
+-- FIRE BTN
 task.spawn(function()
     while true do
         task.wait(0.5)
@@ -1360,7 +1348,7 @@ RunService.RenderStepped:Connect(function()
                                 watchedParts, baseDistances = CaptureDrone(droneObj)
                                 pendingTime = now
                                 hasPending = true
-                                local wp = droneObj.PrimaryPart or droneObj:FindFirstChildWhichIsA("Part")
+                                local wp = droneObj.PrimaryPart or droneObj:FindFirstChildWhichIsA("BasePart")
                                 watchStartHeight = wp and wp.Position.Y or 0
                             end
                         end
