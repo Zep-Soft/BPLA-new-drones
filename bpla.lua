@@ -18,7 +18,7 @@ local Theme = {
 }
 
 local ScriptName = "Zep Hub"
-local ScriptVersion = "v0.4"
+local ScriptVersion = "v0.5"
 local ScriptAuthor = "Z3pty0rbex (@Aminb1000)"
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -90,6 +90,7 @@ local baseDistances = {}
 local pendingTime = 0
 local CHECK_TIME = 3
 local hasPending = false
+local watchStartHeight = 0
 
 local hitCount = 0
 local missCount = 0
@@ -871,46 +872,58 @@ RunService.RenderStepped:Connect(function()
         local firstPart = watchedParts[1]
         local maxGrowth = 0
         local partsAlive = 0
+        local skipAsMiss = false
 
         if firstPart and firstPart.Parent then
-            partsAlive = 1
+            -- Проверка: если дрон упал на 40+ studs от высоты выстрела → сам упал
+            local currentY = firstPart.Position.Y
+            if watchStartHeight - currentY >= 40 then
+                skipAsMiss = true
+            end
+        end
 
-            for i = 2, #watchedParts do
-                local part = watchedParts[i]
-                if part and part.Parent then
-                    partsAlive = partsAlive + 1
-                    local nowDist = (part.Position - firstPart.Position).Magnitude
-                    local baseDist = baseDistances[i - 1] or 0
-
-                    if baseDist > 0.1 then
-                        local growth = nowDist / baseDist
-                        if growth > maxGrowth then
-                            maxGrowth = growth
+        if skipAsMiss then
+            hasPending = false
+            watchedParts = {}
+            baseDistances = {}
+        else
+            if firstPart and firstPart.Parent then
+                partsAlive = 1
+                for i = 2, #watchedParts do
+                    local part = watchedParts[i]
+                    if part and part.Parent then
+                        partsAlive = partsAlive + 1
+                        local nowDist = (part.Position - firstPart.Position).Magnitude
+                        local baseDist = baseDistances[i - 1] or 0
+                        if baseDist > 0.1 then
+                            local growth = nowDist / baseDist
+                            if growth > maxGrowth then
+                                maxGrowth = growth
+                            end
                         end
                     end
                 end
             end
-        end
 
-        -- Попадание: разлёт частей или части удаляются
-        if maxGrowth >= 1.5 or partsAlive < #watchedParts then
-            hitCount = hitCount + 1
-            if customSoundsEnabled then
-                PlayHitSound()
+            if maxGrowth >= 1.5 or partsAlive < #watchedParts then
+                hitCount = hitCount + 1
+                if customSoundsEnabled then
+                    PlayHitSound()
+                end
+                StatsLabel.Text = "Сбито: " .. hitCount .. "  ·  Промахов: " .. missCount
+                hasPending = false
+                watchedParts = {}
+                baseDistances = {}
+            elseif now - pendingTime >= CHECK_TIME then
+                missCount = missCount + 1
+                if customSoundsEnabled then
+                    PlayMissSound()
+                end
+                StatsLabel.Text = "Сбито: " .. hitCount .. "  ·  Промахов: " .. missCount
+                hasPending = false
+                watchedParts = {}
+                baseDistances = {}
             end
-            StatsLabel.Text = "Сбито: " .. hitCount .. "  ·  Промахов: " .. missCount
-            hasPending = false
-            watchedParts = {}
-            baseDistances = {}
-        elseif now - pendingTime >= CHECK_TIME then
-            missCount = missCount + 1
-            if customSoundsEnabled then
-                PlayMissSound()
-            end
-            StatsLabel.Text = "Сбито: " .. hitCount .. "  ·  Промахов: " .. missCount
-            hasPending = false
-            watchedParts = {}
-            baseDistances = {}
         end
     end
 
@@ -951,11 +964,13 @@ RunService.RenderStepped:Connect(function()
                             fireCountThisCycle = fireCountThisCycle + 1
                             TapButton(fireBtn)
 
-                            -- При первом выстреле запоминаем дрона
+                            -- Запоминаем дрона только после реального выстрела
                             if fireCountThisCycle == 1 and droneObj then
                                 watchedParts, baseDistances = CaptureDrone(droneObj)
                                 pendingTime = now
                                 hasPending = true
+                                local wp = droneObj.PrimaryPart or droneObj:FindFirstChildWhichIsA("BasePart")
+                                watchStartHeight = wp and wp.Position.Y or 0
                             end
                         end
                     end
@@ -965,4 +980,4 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-print("Zep Hub v0.4: загрузка завершена")
+print("Zep Hub v0.5: загрузка завершена")
