@@ -18,7 +18,7 @@ local Theme = {
 }
 
 local ScriptName = "Zep Hub"
-local ScriptVersion = "v0.3"
+local ScriptVersion = "v0.4"
 local ScriptAuthor = "Z3pty0rbex (@Aminb1000)"
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -84,9 +84,12 @@ local lastFire = 0
 local fireCooldown = 0.15
 local fireCountThisCycle = 0
 
-local pendingDrone = nil
+-- ДЕТЕКТ ПОПАДАНИЯ
+local watchedParts = {}
+local baseDistances = {}
 local pendingTime = 0
 local CHECK_TIME = 3
+local hasPending = false
 
 local hitCount = 0
 local missCount = 0
@@ -168,6 +171,27 @@ local function TapButton(button)
     VIM:SendMouseButtonEvent(x, y, 0, true, game, 1)
     task.wait(0.02)
     VIM:SendMouseButtonEvent(x, y, 0, false, game, 1)
+end
+
+-- ЗАХВАТ ЧАСТЕЙ ДРОНА
+local function CaptureDrone(drone)
+    local parts = {}
+    for _, obj in pairs(drone:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            table.insert(parts, obj)
+        end
+    end
+
+    local baseDists = {}
+    if #parts >= 2 then
+        local firstPart = parts[1]
+        for i = 2, #parts do
+            local d = (parts[i].Position - firstPart.Position).Magnitude
+            table.insert(baseDists, d)
+        end
+    end
+
+    return parts, baseDists
 end
 
 -- UI
@@ -831,6 +855,9 @@ end)
 plr.CharacterAdded:Connect(function(char)
     fireBtn = nil
     fireCountThisCycle = 0
+    watchedParts = {}
+    baseDistances = {}
+    hasPending = false
     task.wait(1)
     local newBtn = FindFireButton()
     if newBtn then fireBtn = newBtn end
@@ -839,26 +866,51 @@ end)
 RunService.RenderStepped:Connect(function()
     local now = tick()
 
-    -- ПРОВЕРКА ПОПАДАНИЯ/ПРОМАХА (только наш дрон)
-    if pendingDrone then
-        if not pendingDrone.Parent then
-            -- Дрон удалён = наш попал
+    -- ДЕТЕКТ ПОПАДАНИЯ (по разлёту частей)
+    if hasPending and #watchedParts >= 2 then
+        local firstPart = watchedParts[1]
+        local maxGrowth = 0
+        local partsAlive = 0
+
+        if firstPart and firstPart.Parent then
+            partsAlive = 1
+
+            for i = 2, #watchedParts do
+                local part = watchedParts[i]
+                if part and part.Parent then
+                    partsAlive = partsAlive + 1
+                    local nowDist = (part.Position - firstPart.Position).Magnitude
+                    local baseDist = baseDistances[i - 1] or 0
+
+                    if baseDist > 0.1 then
+                        local growth = nowDist / baseDist
+                        if growth > maxGrowth then
+                            maxGrowth = growth
+                        end
+                    end
+                end
+            end
+        end
+
+        -- Попадание: разлёт частей или части удаляются
+        if maxGrowth >= 1.5 or partsAlive < #watchedParts then
             hitCount = hitCount + 1
             if customSoundsEnabled then
                 PlayHitSound()
             end
             StatsLabel.Text = "Сбито: " .. hitCount .. "  ·  Промахов: " .. missCount
-            pendingDrone = nil
-            pendingTime = 0
+            hasPending = false
+            watchedParts = {}
+            baseDistances = {}
         elseif now - pendingTime >= CHECK_TIME then
-            -- 3 сек прошло, дрон жив = промах
             missCount = missCount + 1
             if customSoundsEnabled then
                 PlayMissSound()
             end
             StatsLabel.Text = "Сбито: " .. hitCount .. "  ·  Промахов: " .. missCount
-            pendingDrone = nil
-            pendingTime = 0
+            hasPending = false
+            watchedParts = {}
+            baseDistances = {}
         end
     end
 
@@ -899,9 +951,11 @@ RunService.RenderStepped:Connect(function()
                             fireCountThisCycle = fireCountThisCycle + 1
                             TapButton(fireBtn)
 
-                            if fireCountThisCycle == 1 then
-                                pendingDrone = droneObj
+                            -- При первом выстреле запоминаем дрона
+                            if fireCountThisCycle == 1 and droneObj then
+                                watchedParts, baseDistances = CaptureDrone(droneObj)
                                 pendingTime = now
+                                hasPending = true
                             end
                         end
                     end
@@ -911,4 +965,4 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-print("Zep Hub v0.3: загрузка завершена")
+print("Zep Hub v0.4: загрузка завершена")
