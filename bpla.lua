@@ -216,7 +216,7 @@ local Success, Err = pcall(function()
     end
 
     local ScriptName = "Zep Hub"
-    local ScriptVersion = "v1.1"
+    local ScriptVersion = "v1.0"
     local ScriptAuthor = "Z3pty0rbex (@Aminb1000)"
 
     local autoAimEnabled = false
@@ -966,7 +966,7 @@ local Success, Err = pcall(function()
 
     CreateSectionHeader(InfoPage, "О скрипте", 10)
     CreateCard(InfoPage, "Название", "Zep Hub", 40)
-    CreateCard(InfoPage, "Версия", "v1.1 (Release)", 100)
+    CreateCard(InfoPage, "Версия", "v1.0", 100)
     CreateCard(InfoPage, "Автор", "Z3pty0rbex (@Aminb1000)", 160)
 
     CreateSectionHeader(InfoPage, "Об игре", 230)
