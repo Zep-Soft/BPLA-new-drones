@@ -1,5 +1,10 @@
 local TweenService = game:GetService("TweenService")
 
+if _G.ZepHub_Loaded then
+    return
+end
+_G.ZepHub_Loaded = true
+
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "ZepHub_Error"
 ScreenGui.ResetOnSpawn = false
