@@ -45,12 +45,12 @@ local function CreateStroke(parent, color, thickness)
     return s
 end
 
--- ЗВУКИ (ID можно менять)
+-- ЗВУКИ (ID)
 local HitSoundIDs = {
-    136688569661082,  -- «Есть пробитие!»
-    7531253465,       -- «Противник уничтожен!»
+    136688569661082,
+    7531253465,
 }
-local MissSoundID = 117671199302919  -- «Не пробил!»
+local MissSoundID = 117671199302919
 
 local function PlaySoundById(soundId)
     local s = Instance.new("Sound")
@@ -64,13 +64,11 @@ local function PlaySoundById(soundId)
 end
 
 local function PlayHitSound()
-    if not soundsEnabled then return end
     local pick = HitSoundIDs[math.random(1, #HitSoundIDs)]
     PlaySoundById(pick)
 end
 
 local function PlayMissSound()
-    if not missSoundEnabled then return end
     PlaySoundById(MissSoundID)
 end
 
@@ -78,8 +76,7 @@ end
 local autoAimEnabled = false
 local autoFireEnabled = true
 local stopWhenMoving = true
-local soundsEnabled = true
-local missSoundEnabled = true
+local customSoundsEnabled = false
 local maxDistance = 2000
 local minHeight = 20
 local fireBtn = nil
@@ -87,16 +84,13 @@ local lastFire = 0
 local fireCooldown = 0.15
 local fireCountThisCycle = 0
 
--- ДЕТЕКТ
 local pendingDrone = nil
 local pendingTime = 0
 local CHECK_TIME = 5
 
--- СТАТ
 local hitCount = 0
 local missCount = 0
 
--- ХЕЛПЕРЫ
 local function GetCircle()
     local pg = plr:FindFirstChild("PlayerGui")
     if not pg then return nil end
@@ -278,17 +272,12 @@ ContentArea.Position = UDim2.new(0, 140, 0, 48)
 ContentArea.BackgroundTransparency = 1
 ContentArea.Parent = MainFrame
 
+-- СТРАНИЦЫ (Welcome / Settings / Info — обычные)
 local WelcomePage = Instance.new("Frame")
 WelcomePage.Size = UDim2.new(1, 0, 1, 0)
 WelcomePage.BackgroundTransparency = 1
 WelcomePage.Visible = true
 WelcomePage.Parent = ContentArea
-
-local MainPage = Instance.new("Frame")
-MainPage.Size = UDim2.new(1, 0, 1, 0)
-MainPage.BackgroundTransparency = 1
-MainPage.Visible = false
-MainPage.Parent = ContentArea
 
 local SettingsPage = Instance.new("Frame")
 SettingsPage.Size = UDim2.new(1, 0, 1, 0)
@@ -301,6 +290,23 @@ InfoPage.Size = UDim2.new(1, 0, 1, 0)
 InfoPage.BackgroundTransparency = 1
 InfoPage.Visible = false
 InfoPage.Parent = ContentArea
+
+-- ГЛАВНАЯ — СО СКРОЛЛОМ
+local MainPage = Instance.new("ScrollingFrame")
+MainPage.Size = UDim2.new(1, 0, 1, 0)
+MainPage.BackgroundTransparency = 1
+MainPage.BorderSizePixel = 0
+MainPage.ScrollBarThickness = 4
+MainPage.ScrollBarImageColor3 = Theme.Accent
+MainPage.CanvasSize = UDim2.new(0, 0, 0, 0)
+MainPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
+MainPage.Visible = false
+MainPage.Parent = ContentArea
+
+local MainPadding = Instance.new("UIPadding")
+MainPadding.PaddingTop = UDim.new(0, 8)
+MainPadding.PaddingBottom = UDim.new(0, 8)
+MainPadding.Parent = MainPage
 
 local function CreateSectionHeader(parent, text, yOffset)
     local Header = Instance.new("TextLabel")
@@ -363,7 +369,6 @@ local function CreateCard(parent, title, subtitle, yOffset)
     return Card
 end
 
--- WELCOME
 CreateSectionHeader(WelcomePage, "Добро пожаловать", 16)
 CreateCard(WelcomePage, "Zep Hub", "Загружен и готов к работе", 45)
 CreateCard(WelcomePage, "Версия", ScriptVersion, 110)
@@ -371,7 +376,6 @@ CreateCard(WelcomePage, "Автор", ScriptAuthor, 175)
 
 -- ============================================
 -- MAIN PAGE
-
 CreateSectionHeader(MainPage, "AIM", 10)
 
 local function CreateCheckbox(parent, text, yOffset, defaultState, callback)
@@ -460,18 +464,13 @@ end)
 
 -- ============================================
 -- ЗВУКИ
-
 CreateSectionHeader(MainPage, "Звуки", 92)
 
-CreateCheckbox(MainPage, "Звуки попадания", 122, true, function(v)
-    soundsEnabled = v
+CreateCheckbox(MainPage, "Кастомные звуки", 122, false, function(v)
+    customSoundsEnabled = v
 end)
 
-CreateCheckbox(MainPage, "Звук промаха", 168, true, function(v)
-    missSoundEnabled = v
-end)
-
--- ПОЛЯ ДЛЯ ID
+-- ПОЛЯ ДЛЯ ID (только при включённых кастомных)
 local function CreateIdField(parent, label, defaultId, yOffset, onApply)
     local Container = Instance.new("Frame")
     Container.Size = UDim2.new(1, -32, 0, 32)
@@ -556,25 +555,24 @@ local function CreateIdField(parent, label, defaultId, yOffset, onApply)
     return Container
 end
 
--- Поля ID (можно менять)
-local hit1Field = CreateIdField(MainPage, "Попадание 1", HitSoundIDs[1], 214, function(id)
+CreateIdField(MainPage, "Попадание 1", HitSoundIDs[1], 168, function(id)
     HitSoundIDs[1] = id
 end)
 
-local hit2Field = CreateIdField(MainPage, "Попадание 2", HitSoundIDs[2], 250, function(id)
+CreateIdField(MainPage, "Попадание 2", HitSoundIDs[2], 204, function(id)
     HitSoundIDs[2] = id
 end)
 
-local missField = CreateIdField(MainPage, "Промах", MissSoundID, 286, function(id)
+CreateIdField(MainPage, "Промах", MissSoundID, 240, function(id)
     MissSoundID = id
 end)
 
 -- СТАТИСТИКА
-CreateSectionHeader(MainPage, "Статистика", 326)
+CreateSectionHeader(MainPage, "Статистика", 280)
 
 local StatsLabel = Instance.new("TextLabel")
 StatsLabel.Size = UDim2.new(1, -32, 0, 36)
-StatsLabel.Position = UDim2.new(0, 16, 0, 350)
+StatsLabel.Position = UDim2.new(0, 16, 0, 304)
 StatsLabel.BackgroundColor3 = Theme.Surface
 StatsLabel.Text = "Сбито: 0  ·  Промахов: 0"
 StatsLabel.TextColor3 = Theme.Text
@@ -583,6 +581,13 @@ StatsLabel.TextSize = 12
 StatsLabel.Parent = MainPage
 CreateCorner(StatsLabel, 10)
 CreateStroke(StatsLabel, Theme.Stroke, 1)
+
+-- Заглушка, чтобы скролл был правильной высоты
+local Spacer = Instance.new("Frame")
+Spacer.Size = UDim2.new(1, 0, 0, 20)
+Spacer.Position = UDim2.new(0, 0, 0, 348)
+Spacer.BackgroundTransparency = 1
+Spacer.Parent = MainPage
 
 -- SETTINGS / INFO
 CreateSectionHeader(SettingsPage, "Настройки", 16)
@@ -829,7 +834,6 @@ CloseBtn.MouseButton1Click:Connect(function()
     end)
 end)
 
--- ПОИСК FIRE
 task.spawn(function()
     while true do
         task.wait(0.5)
@@ -855,14 +859,18 @@ RunService.RenderStepped:Connect(function()
         if pendingDrone.Parent then
             if now - pendingTime >= CHECK_TIME then
                 missCount = missCount + 1
-                PlayMissSound()
+                if customSoundsEnabled then
+                    PlayMissSound()
+                end
                 StatsLabel.Text = "Сбито: " .. hitCount .. "  ·  Промахов: " .. missCount
                 pendingDrone = nil
                 pendingTime = 0
             end
         else
             hitCount = hitCount + 1
-            PlayHitSound()
+            if customSoundsEnabled then
+                PlayHitSound()
+            end
             StatsLabel.Text = "Сбито: " .. hitCount .. "  ·  Промахов: " .. missCount
             pendingDrone = nil
             pendingTime = 0
