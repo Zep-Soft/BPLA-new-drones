@@ -51,7 +51,8 @@ local maxDistance = 2000
 local minHeight = 20
 local fireBtn = nil
 local lastFire = 0
-local fireCooldown = 0.3
+local fireCooldown = 0.15
+local fireCountThisCycle = 0
 
 local function GetCircle()
     local pg = plr:FindFirstChild("PlayerGui")
@@ -676,7 +677,6 @@ task.spawn(function()
 end)
 
 RunService.RenderStepped:Connect(function()
-    -- ЖДЁМ STINGER-M
     local hasStinger = plr.Character and plr.Character:FindFirstChild("Stinger-M")
 
     if not autoAimEnabled then
@@ -688,6 +688,7 @@ RunService.RenderStepped:Connect(function()
     if not hasStinger then
         StatusLabel.Text = "⏳ Ожидание Stinger-M в руке..."
         StatusLabel.TextColor3 = Color3.fromRGB(255, 200, 120)
+        fireCountThisCycle = 0
         return
     end
 
@@ -702,6 +703,7 @@ RunService.RenderStepped:Connect(function()
         statusText = statusText .. "\nВысота: " .. math.floor(dronePos.Y)
         statusText = statusText .. "\nДист: " .. math.floor(dist)
         statusText = statusText .. "\nКруг зелёный: " .. (green and "ДА" or "НЕТ")
+        statusText = statusText .. "\nВыстрелов: " .. fireCountThisCycle .. "/2"
 
         if autoFireEnabled then
             if fireBtn and fireBtn.Parent and fireBtn.Visible then
@@ -710,15 +712,21 @@ RunService.RenderStepped:Connect(function()
                 if stopWhenMoving and isMoving then
                     statusText = statusText .. "\n🚫 Ходьба — стоп"
                 elseif not green then
-                    statusText = statusText .. "\n⏳ Круг не зелёный"
+                    fireCountThisCycle = 0
+                    statusText = statusText .. "\n⏳ Ждём зелёный круг"
                 else
-                    local now = tick()
-                    if now - lastFire >= fireCooldown then
-                        lastFire = now
-                        TapButton(fireBtn)
-                        statusText = statusText .. "\n🔥 FIRE"
+                    if fireCountThisCycle < 2 then
+                        local now = tick()
+                        if now - lastFire >= fireCooldown then
+                            lastFire = now
+                            fireCountThisCycle = fireCountThisCycle + 1
+                            TapButton(fireBtn)
+                            statusText = statusText .. "\n🔥 FIRE (" .. fireCountThisCycle .. "/2)"
+                        else
+                            statusText = statusText .. "\n⏳ кулдаун"
+                        end
                     else
-                        statusText = statusText .. "\n⏳ кулдаун"
+                        statusText = statusText .. "\n✅ 2 выстрела сделано"
                     end
                 end
             else
