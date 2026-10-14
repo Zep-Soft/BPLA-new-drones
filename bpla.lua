@@ -18,7 +18,7 @@ local Theme = {
 }
 
 local ScriptName = "Zep Hub"
-local ScriptVersion = "v0.5"
+local ScriptVersion = "v0.6"
 local ScriptAuthor = "Z3pty0rbex (@Aminb1000)"
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -84,7 +84,7 @@ local lastFire = 0
 local fireCooldown = 0.15
 local fireCountThisCycle = 0
 
--- ДЕТЕКТ ПОПАДАНИЯ
+-- ДЕТЕКТ
 local watchedParts = {}
 local baseDistances = {}
 local pendingTime = 0
@@ -94,6 +94,25 @@ local watchStartHeight = 0
 
 local hitCount = 0
 local missCount = 0
+
+-- ССЫЛКИ НА ЧЕКБОКС AUTO-AIM
+local AutoAimBox = nil
+local AutoAimBoxStroke = nil
+local AutoAimMark = nil
+
+local function UpdateCheckboxVisual()
+    if not AutoAimBox then return end
+
+    if autoAimEnabled then
+        AutoAimBox.BackgroundColor3 = Theme.Accent
+        if AutoAimBoxStroke then AutoAimBoxStroke.Color = Theme.Accent end
+        if AutoAimMark then AutoAimMark.ImageTransparency = 0 end
+    else
+        AutoAimBox.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
+        if AutoAimBoxStroke then AutoAimBoxStroke.Color = Theme.Stroke end
+        if AutoAimMark then AutoAimMark.ImageTransparency = 1 end
+    end
+end
 
 local function GetCircle()
     local pg = plr:FindFirstChild("PlayerGui")
@@ -165,16 +184,26 @@ local function IsPlayerMoving()
 end
 
 local function TapButton(button)
+    if not button or not button.Parent then return end
+
+    -- VIM
     local absPos = button.AbsolutePosition
     local absSize = button.AbsoluteSize
-    local x = absPos.X + absSize.X / 2
-    local y = absPos.Y + absSize.Y / 2
-    VIM:SendMouseButtonEvent(x, y, 0, true, game, 1)
-    task.wait(0.02)
-    VIM:SendMouseButtonEvent(x, y, 0, false, game, 1)
+    if absSize.X > 0 and absSize.Y > 0 then
+        local x = absPos.X + absSize.X / 2
+        local y = absPos.Y + absSize.Y / 2
+        pcall(function()
+            VIM:SendMouseButtonEvent(x, y, 0, true, game, 1)
+            task.wait(0.02)
+            VIM:SendMouseButtonEvent(x, y, 0, false, game, 1)
+        end)
+    end
+
+    -- Запасные способы
+    pcall(function() button.MouseButton1Click:Fire() end)
+    pcall(function() button:Activate() end)
 end
 
--- ЗАХВАТ ЧАСТЕЙ ДРОНА
 local function CaptureDrone(drone)
     local parts = {}
     for _, obj in pairs(drone:GetDescendants()) do
@@ -474,12 +503,16 @@ local function CreateCheckbox(parent, text, yOffset, defaultState, callback)
         }):Play()
     end)
 
-    return Container
+    return Container, Box, BoxStroke, Mark
 end
 
-CreateCheckbox(MainPage, "Auto-Aim", 40, false, function(v)
+local AutoAimContainer, Box, BoxStroke, Mark = CreateCheckbox(MainPage, "Auto-Aim", 40, false, function(v)
     autoAimEnabled = v
 end)
+
+AutoAimBox = Box
+AutoAimBoxStroke = BoxStroke
+AutoAimMark = Mark
 
 CreateSectionHeader(MainPage, "Звуки", 92)
 
@@ -553,9 +586,7 @@ local function CreateIdField(parent, label, defaultId, yOffset, onApply)
 
     PlayBtn.MouseButton1Click:Connect(function()
         local id = tonumber(Input.Text)
-        if id then
-            PlaySoundById(id)
-        end
+        if id then PlaySoundById(id) end
     end)
 
     ApplyBtn.MouseButton1Click:Connect(function()
@@ -571,17 +602,9 @@ local function CreateIdField(parent, label, defaultId, yOffset, onApply)
     return Container
 end
 
-CreateIdField(MainPage, "Попадание 1", HitSoundIDs[1], 168, function(id)
-    HitSoundIDs[1] = id
-end)
-
-CreateIdField(MainPage, "Попадание 2", HitSoundIDs[2], 204, function(id)
-    HitSoundIDs[2] = id
-end)
-
-CreateIdField(MainPage, "Промах", MissSoundID, 240, function(id)
-    MissSoundID = id
-end)
+CreateIdField(MainPage, "Попадание 1", HitSoundIDs[1], 168, function(id) HitSoundIDs[1] = id end)
+CreateIdField(MainPage, "Попадание 2", HitSoundIDs[2], 204, function(id) HitSoundIDs[2] = id end)
+CreateIdField(MainPage, "Промах", MissSoundID, 240, function(id) MissSoundID = id end)
 
 CreateSectionHeader(MainPage, "Статистика", 280)
 
@@ -825,8 +848,7 @@ TitleBar.InputEnded:Connect(function(input)
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - dragStart
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then        local delta = input.Position - dragStart
         MainFrame.Position = UDim2.new(
             startPos.X.Scale, startPos.X.Offset + delta.X,
             startPos.Y.Scale, startPos.Y.Offset + delta.Y
@@ -853,13 +875,29 @@ task.spawn(function()
     end
 end)
 
+-- При смерти: выключаем Auto-Aim и сбрасываем всё
+plr.CharacterRemoving:Connect(function()
+    autoAimEnabled = false
+    UpdateCheckboxVisual()
+
+    fireBtn = nil
+    fireCountThisCycle = 0
+    watchedParts = {}
+    baseDistances = {}
+    hasPending = false
+    pendingTime = 0
+    watchStartHeight = 0
+end)
+
 plr.CharacterAdded:Connect(function(char)
     fireBtn = nil
     fireCountThisCycle = 0
     watchedParts = {}
     baseDistances = {}
     hasPending = false
-    task.wait(1)
+
+    task.wait(1.5)
+
     local newBtn = FindFireButton()
     if newBtn then fireBtn = newBtn end
 end)
@@ -867,7 +905,7 @@ end)
 RunService.RenderStepped:Connect(function()
     local now = tick()
 
-    -- ДЕТЕКТ ПОПАДАНИЯ (по разлёту частей)
+    -- ДЕТЕКТ ПОПАДАНИЯ
     if hasPending and #watchedParts >= 2 then
         local firstPart = watchedParts[1]
         local maxGrowth = 0
@@ -875,7 +913,6 @@ RunService.RenderStepped:Connect(function()
         local skipAsMiss = false
 
         if firstPart and firstPart.Parent then
-            -- Проверка: если дрон упал на 40+ studs от высоты выстрела → сам упал
             local currentY = firstPart.Position.Y
             if watchStartHeight - currentY >= 40 then
                 skipAsMiss = true
@@ -907,18 +944,14 @@ RunService.RenderStepped:Connect(function()
 
             if maxGrowth >= 1.5 or partsAlive < #watchedParts then
                 hitCount = hitCount + 1
-                if customSoundsEnabled then
-                    PlayHitSound()
-                end
+                if customSoundsEnabled then PlayHitSound() end
                 StatsLabel.Text = "Сбито: " .. hitCount .. "  ·  Промахов: " .. missCount
                 hasPending = false
                 watchedParts = {}
                 baseDistances = {}
             elseif now - pendingTime >= CHECK_TIME then
                 missCount = missCount + 1
-                if customSoundsEnabled then
-                    PlayMissSound()
-                end
+                if customSoundsEnabled then PlayMissSound() end
                 StatsLabel.Text = "Сбито: " .. hitCount .. "  ·  Промахов: " .. missCount
                 hasPending = false
                 watchedParts = {}
@@ -927,9 +960,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    if not autoAimEnabled then
-        return
-    end
+    if not autoAimEnabled then return end
 
     local hasStinger = plr.Character and plr.Character:FindFirstChild("Stinger-M")
     if not hasStinger then
@@ -964,7 +995,6 @@ RunService.RenderStepped:Connect(function()
                             fireCountThisCycle = fireCountThisCycle + 1
                             TapButton(fireBtn)
 
-                            -- Запоминаем дрона только после реального выстрела
                             if fireCountThisCycle == 1 and droneObj then
                                 watchedParts, baseDistances = CaptureDrone(droneObj)
                                 pendingTime = now
@@ -980,4 +1010,4 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-print("Zep Hub v0.5: загрузка завершена")
+print("Zep Hub v0.6: загрузка завершена")
