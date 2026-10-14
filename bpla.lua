@@ -264,8 +264,34 @@ local function CaptureDrone(drone)
     return parts, baseDists
 end
 
--- ============ UI ============
+-- ============ СОЗДАНИЕ UI ============
 
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ZepHub_UI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = game:GetService("CoreGui")
+
+-- ФУНКЦИИ ПОСЛЕ SCREENGUI
+local function CreateCorner(parent, radius)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, radius or 12)
+    c.Parent = parent
+    return c
+end
+
+local function CreateStroke(parent, color, thickness)
+    local s = Instance.new("UIStroke")
+    s.Color = color or Theme.Stroke
+    s.Thickness = thickness or 1
+    s.Transparency = 0.3
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    s.Parent = parent
+    return s
+end
+
+-- MAIN FRAME
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 520, 0, 420)
 MainFrame.Position = UDim2.new(0.5, -260, 0.5, -210)
@@ -691,7 +717,6 @@ local function ApplyTheme(themeName)
     savedTheme = themeName
     SaveFile("Theme", themeName)
 
-    -- Обновляем фон
     MainFrame.BackgroundColor3 = Theme.Background
     TitleBar.BackgroundColor3 = Theme.Surface
     TitleBarFix.BackgroundColor3 = Theme.Surface
@@ -705,19 +730,6 @@ local function ApplyTheme(themeName)
 
     SidebarDivider.BackgroundColor3 = Theme.Stroke
 
-    -- Обновляем чекбоксы и кнопки — пересоздаём UI
-    pcall(function()
-        for _, obj in pairs(MainPage:GetChildren()) do
-            if obj:IsA("Frame") then
-                if obj.BackgroundColor3 ~= Color3.fromRGB(26, 26, 32) 
-                and obj.BackgroundColor3 ~= Color3.fromRGB(10, 10, 12) then
-                    -- пропускаем поля ID
-                end
-            end
-        end
-    end)
-
-    -- Применяем цвета к кнопкам темы
     for name, btn in pairs(ThemeButtons) do
         if name == themeName then
             btn.BackgroundColor3 = Theme.Accent
@@ -735,7 +747,7 @@ for name, colors in pairs(Themes) do
     Btn.Size = UDim2.new(1, -32, 0, 36)
     Btn.Position = UDim2.new(0, 16, 0, y)
     Btn.BackgroundColor3 = Theme.Surface
-    Btn.Text = name .. "  (" .. tostring(colors.Accent) .. ")"
+    Btn.Text = name
     Btn.TextColor3 = Theme.TextDim
     Btn.Font = Enum.Font.GothamBold
     Btn.TextSize = 11
@@ -760,7 +772,6 @@ for name, colors in pairs(Themes) do
     y = y + 42
 end
 
--- Отмечаем текущую тему
 if ThemeButtons[savedTheme] then
     ThemeButtons[savedTheme].BackgroundColor3 = Theme.Accent
     ThemeButtons[savedTheme].TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1349,7 +1360,7 @@ RunService.RenderStepped:Connect(function()
                                 watchedParts, baseDistances = CaptureDrone(droneObj)
                                 pendingTime = now
                                 hasPending = true
-                                local wp = droneObj.PrimaryPart or droneObj:FindFirstChildWhichIsA("BasePart")
+                                local wp = droneObj.PrimaryPart or droneObj:FindFirstChildWhichIsA("Part")
                                 watchStartHeight = wp and wp.Position.Y or 0
                             end
                         end
