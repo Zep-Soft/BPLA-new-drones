@@ -18,7 +18,7 @@ local Theme = {
 }
 
 local ScriptName = "Zep Hub"
-local ScriptVersion = "v0.6"
+local ScriptVersion = "v0.7"
 local ScriptAuthor = "Z3pty0rbex (@Aminb1000)"
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -46,10 +46,7 @@ local function CreateStroke(parent, color, thickness)
 end
 
 -- ЗВУКИ
-local HitSoundIDs = {
-    136688569661082,
-    7531253465,
-}
+local HitSoundIDs = {136688569661082, 7531253465}
 local MissSoundID = 117671199302919
 
 local function PlaySoundById(soundId)
@@ -58,9 +55,7 @@ local function PlaySoundById(soundId)
     s.Volume = 2
     s.Parent = SoundService
     s:Play()
-    task.delay(5, function()
-        if s and s.Parent then s:Destroy() end
-    end)
+    task.delay(5, function() if s and s.Parent then s:Destroy() end end)
 end
 
 local function PlayHitSound()
@@ -84,7 +79,6 @@ local lastFire = 0
 local fireCooldown = 0.15
 local fireCountThisCycle = 0
 
--- ДЕТЕКТ
 local watchedParts = {}
 local baseDistances = {}
 local pendingTime = 0
@@ -95,14 +89,12 @@ local watchStartHeight = 0
 local hitCount = 0
 local missCount = 0
 
--- ССЫЛКИ НА ЧЕКБОКС AUTO-AIM
 local AutoAimBox = nil
 local AutoAimBoxStroke = nil
 local AutoAimMark = nil
 
 local function UpdateCheckboxVisual()
     if not AutoAimBox then return end
-
     if autoAimEnabled then
         AutoAimBox.BackgroundColor3 = Theme.Accent
         if AutoAimBoxStroke then AutoAimBoxStroke.Color = Theme.Accent end
@@ -149,6 +141,14 @@ local function IsFireBtnValid()
     if not fireBtn then return false end
     if not fireBtn.Parent then return false end
     if not fireBtn.Visible then return false end
+    local char = plr.Character
+    if char then
+        if not char:FindFirstChild("Stinger-M") then
+            return false
+        end
+    else
+        return false
+    end
     return true
 end
 
@@ -185,8 +185,6 @@ end
 
 local function TapButton(button)
     if not button or not button.Parent then return end
-
-    -- VIM
     local absPos = button.AbsolutePosition
     local absSize = button.AbsoluteSize
     if absSize.X > 0 and absSize.Y > 0 then
@@ -198,8 +196,6 @@ local function TapButton(button)
             VIM:SendMouseButtonEvent(x, y, 0, false, game, 1)
         end)
     end
-
-    -- Запасные способы
     pcall(function() button.MouseButton1Click:Fire() end)
     pcall(function() button:Activate() end)
 end
@@ -211,7 +207,6 @@ local function CaptureDrone(drone)
             table.insert(parts, obj)
         end
     end
-
     local baseDists = {}
     if #parts >= 2 then
         local firstPart = parts[1]
@@ -220,7 +215,6 @@ local function CaptureDrone(drone)
             table.insert(baseDists, d)
         end
     end
-
     return parts, baseDists
 end
 
@@ -409,7 +403,6 @@ local function CreateCard(parent, title, subtitle, yOffset)
             BackgroundColor3 = Theme.SurfaceHover
         }):Play()
     end)
-
     Card.MouseLeave:Connect(function()
         TweenService:Create(Card, TweenInfo.new(0.15), {
             BackgroundColor3 = Theme.Surface
@@ -496,7 +489,6 @@ local function CreateCheckbox(parent, text, yOffset, defaultState, callback)
             BackgroundColor3 = Theme.SurfaceHover
         }):Play()
     end)
-
     Container.MouseLeave:Connect(function()
         TweenService:Create(Container, TweenInfo.new(0.15), {
             BackgroundColor3 = Theme.Surface
@@ -719,7 +711,6 @@ local function CreateTab(name, pageKey)
             }):Play()
         end
     end)
-
     Tab.MouseLeave:Connect(function()
         if ActiveTab ~= Tab then
             TweenService:Create(Tab, TweenInfo.new(0.15), {
@@ -848,7 +839,8 @@ TitleBar.InputEnded:Connect(function(input)
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then        local delta = input.Position - dragStart
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
         MainFrame.Position = UDim2.new(
             startPos.X.Scale, startPos.X.Offset + delta.X,
             startPos.Y.Scale, startPos.Y.Offset + delta.Y
@@ -875,8 +867,8 @@ task.spawn(function()
     end
 end)
 
--- При смерти: выключаем Auto-Aim и сбрасываем всё
-plr.CharacterRemoving:Connect(function()
+-- ФУНКЦИИ ДЛЯ СМЕРТИ / РЕСПАВНА
+local function OnDeath()
     autoAimEnabled = false
     UpdateCheckboxVisual()
 
@@ -887,7 +879,19 @@ plr.CharacterRemoving:Connect(function()
     hasPending = false
     pendingTime = 0
     watchStartHeight = 0
-end)
+end
+
+local function BindHumanoid(character)
+    if not character then return end
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    if humanoid then
+        humanoid.Died:Connect(OnDeath)
+    end
+end
+
+if plr.Character then
+    BindHumanoid(plr.Character)
+end
 
 plr.CharacterAdded:Connect(function(char)
     fireBtn = nil
@@ -896,12 +900,15 @@ plr.CharacterAdded:Connect(function(char)
     baseDistances = {}
     hasPending = false
 
+    BindHumanoid(char)
+
     task.wait(1.5)
 
     local newBtn = FindFireButton()
     if newBtn then fireBtn = newBtn end
 end)
 
+-- ГЛАВНЫЙ ЦИКЛ
 RunService.RenderStepped:Connect(function()
     local now = tick()
 
@@ -962,6 +969,7 @@ RunService.RenderStepped:Connect(function()
 
     if not autoAimEnabled then return end
 
+    -- Проверка Stinger-M в руке
     local hasStinger = plr.Character and plr.Character:FindFirstChild("Stinger-M")
     if not hasStinger then
         fireCountThisCycle = 0
@@ -1010,4 +1018,4 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-print("Zep Hub v0.6: загрузка завершена")
+print("Zep Hub v0.7: загрузка завершена")
