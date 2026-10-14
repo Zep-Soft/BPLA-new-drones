@@ -17,7 +17,7 @@ local Theme = {
 }
 
 local ScriptName = "Zep Hub"
-local ScriptVersion = "v1.1"
+local ScriptVersion = "v1.2"
 local ScriptAuthor = "Z3pty0rbex (@Aminb1000)"
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -85,6 +85,19 @@ local function FindFireButton()
     return nil
 end
 
+local function IsDroneVisible(dronePart, camPos, dist)
+    local rayParams = RaycastParams.new()
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
+    rayParams.FilterDescendantsInstances = {plr.Character, cam}
+
+    local rayDir = (dronePart.Position - camPos).Unit * dist
+    local rayResult = workspace:Raycast(camPos, rayDir, rayParams)
+
+    if not rayResult then return true end
+    if rayResult.Instance:IsDescendantOf(dronePart.Parent) then return true end
+    return false
+end
+
 local function FindDrone()
     local dronesFolder = workspace:FindFirstChild("Drones")
     if not dronesFolder then return nil, 0, nil end
@@ -100,10 +113,13 @@ local function FindDrone()
             if part then
                 local pos = part.Position
                 local dist = (pos - camPos).Magnitude
+
                 if pos.Y >= minHeight and dist < nearestDist then
-                    nearestDist = dist
-                    nearestPos = pos
-                    nearestName = obj.Name
+                    if IsDroneVisible(part, camPos, dist) then
+                        nearestDist = dist
+                        nearestPos = pos
+                        nearestName = obj.Name
+                    end
                 end
             end
         end
