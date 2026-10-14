@@ -17,7 +17,7 @@ local Theme = {
 }
 
 local ScriptName = "Zep Hub"
-local ScriptVersion = "v1.2"
+local ScriptVersion = "v1.3"
 local ScriptAuthor = "Z3pty0rbex (@Aminb1000)"
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -83,6 +83,13 @@ local function FindFireButton()
         return button
     end
     return nil
+end
+
+local function IsFireBtnValid()
+    if not fireBtn then return false end
+    if not fireBtn.Parent then return false end
+    if not fireBtn.Visible then return false end
+    return true
 end
 
 local function IsDroneVisible(dronePart, camPos, dist)
@@ -686,10 +693,18 @@ end)
 
 task.spawn(function()
     while true do
-        task.wait(1)
+        task.wait(0.5)
         local newBtn = FindFireButton()
         if newBtn then fireBtn = newBtn end
     end
+end)
+
+plr.CharacterAdded:Connect(function(char)
+    fireBtn = nil
+    fireCountThisCycle = 0
+    task.wait(0.5)
+    local newBtn = FindFireButton()
+    if newBtn then fireBtn = newBtn end
 end)
 
 RunService.RenderStepped:Connect(function()
@@ -722,7 +737,11 @@ RunService.RenderStepped:Connect(function()
         statusText = statusText .. "\nВыстрелов: " .. fireCountThisCycle .. "/2"
 
         if autoFireEnabled then
-            if fireBtn and fireBtn.Parent and fireBtn.Visible then
+            if not IsFireBtnValid() then
+                fireBtn = FindFireButton()
+            end
+
+            if IsFireBtnValid() then
                 local isMoving = IsPlayerMoving()
 
                 if stopWhenMoving and isMoving then
